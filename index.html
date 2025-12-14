@@ -3,413 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor de Producción - Cirineo</title>
+    <title>Almacén de Fichas Técnicas - Desarrollo</title>
     
-    <link rel="icon" href="https://raw.githubusercontent.com/jesusvn1993mplvt3-ai/CIRINEO/refs/heads/main/icon.ico">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    
     <style>
-        body { font-family: 'Roboto Condensed', sans-serif; background-color: #f1f5f9; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Estilos base para la impresión en Carta */
+        @page { size: letter; margin: 0.5in; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .ficha-container { width: 8.5in; min-height: 11in; margin: 0 auto; background-color: white; padding: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 3px solid #333; padding-bottom: 10px; }
+        .header h1 { color: #1a237e; margin: 0; font-size: 1.5em; }
+        .image-container { width: 150px; height: 150px; border: 1px solid #ccc; background-color: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-right: 20px; position: relative; }
+        .image-container img { width: 100%; height: 100%; object-fit: contain; }
+        .image-placeholder { color: #555; font-style: italic; }
+        @media print { .control-panel, .btn-print, .machine-config-controls { display: none !important; } }
         
-        /* Estilos para el scroll horizontal de las máquinas */
-        .machines-container {
-            display: flex;
-            overflow-x: auto;
-            gap: 1.5rem; /* gap-6 */
-            padding: 1.5rem; /* p-6 */
-            scrollbar-width: thin; /* Firefox */
-            scrollbar-color: #3b82f6 #e2e8f0; /* Firefox */
+        /* Estilos de la Tabla */
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .data-table th, .data-table td { border: 1px solid #000; padding: 8px; text-align: left; }
+        .data-table th { background-color: #f0f0f0; font-weight: bold; width: 20%; }
+        .data-table td { width: 30%; min-height: 30px; }
+        .full-width-cell { width: 80% !important; }
+        .editable-label { font-weight: bold; color: #444; }
+        .editable-content { min-width: 100px; min-height: 15px; }
+
+        /* Estilos para Resaltar Celdas */
+        .highlight-yellow { background-color: #fff3cd !important; }
+        .highlight-red { background-color: #f8d7da !important; }
+        .notes-section { margin-top: 20px; border: 1px solid #ccc; padding: 10px; min-height: 100px; }
+        .notes-section h3 { margin-top: 0; font-size: 1.2em; color: #333; }
+
+        /* Estilos Específicos de Configuración de Máquina */
+        .machine-config {
+            border: 2px solid #5d9cec;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background-color: #e3f2fd;
         }
-        .machines-container::-webkit-scrollbar {
-            height: 8px;
+        .machine-config h3 {
+            background-color: #5d9cec;
+            color: white;
+            padding: 5px 10px;
+            margin: -15px -15px 15px -15px;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
         }
-        .machines-container::-webkit-scrollbar-thumb {
-            background-color: #3b82f6; /* blue-500 */
-            border-radius: 4px;
+        .hilo-row input {
+            padding: 4px;
+            border: 1px solid #ccc;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .machines-container::-webkit-scrollbar-track {
-            background-color: #e2e8f0; /* slate-200 */
+        .hilo-row label {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.9em;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+    <div class="ficha-container">
+        
+        <div class="control-panel">
+            <input type="file" id="imageUpload" accept="image/*" style="display: block; margin-bottom: 10px;">
+            <p style="font-size: 0.8em; margin: 5px 0;"><strong>Doble Clic</strong> en cualquier celda de tabla para cambiar color (Amarillo/Rojo).</p>
+            <button onclick="saveFichaTecnica()" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">💾 Guardar Ficha en Firebase</button>
+            <button class="btn-print" onclick="window.print()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">🖨️ Imprimir Ficha</button>
+            <hr style="margin: 15px 0;">
+        </div>
 
-        // --- CONFIGURACIÓN DE FIREBASE ---
+        <div class="header">
+            <div style="display: flex; align-items: center;">
+                <div class="image-container">
+                    <img id="modelImage" src="" alt="Imagen del Modelo" style="display: none;">
+                    <span id="imagePlaceholder" class="image-placeholder">Imagen del Modelo</span>
+                </div>
+                <div>
+                    <h1>FICHA TÉCNICA - MODELO <span id="input-modelo" contenteditable="true" style="color: #00008b; border-bottom: 1px dashed #ccc; padding: 2px;">[MODELO]</span></h1>
+                    <p style="font-size: 0.8em; margin: 5px 0 0 0;">Fecha de Creación: <span id="input-fecha" contenteditable="true" style="border-bottom: 1px dashed #ccc; padding: 2px;">DD/MM/AAAA</span></p>
+                </div>
+            </div>
+        </div>
+
+        <table class="data-table" id="tabla-datos-generales">
+            <tbody>
+                <tr>
+                    <td class="editable-label" contenteditable="true">CLIENTE:</td>
+                    <td id="input-cliente" contenteditable="true"></td>
+                    <td class="editable-label" contenteditable="true">DESCRIPCIÓN:</td>
+                    <td id="input-descripcion" contenteditable="true"></td>
+                    <td class="editable-label" contenteditable="true">TALLA:</td>
+                    <td id="input-talla" contenteditable="true"></td>
+                </tr>
+                <tr>
+                    <td class="editable-label" contenteditable="true">PARTIDA EJEMPLO:</td>
+                    <td id="input-partida" contenteditable="true"></td>
+                    <td class="editable-label" contenteditable="true">PIEZAS X BULTO:</td>
+                    <td id="input-pzas-bulto" contenteditable="true"></td>
+                    <td class="editable-label" contenteditable="true">REFERENCIA INTERNA:</td>
+                    <td id="input-referencia" contenteditable="true"></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h2 style="margin-top: 30px; color: #1a237e; border-bottom: 1px solid #ccc;">CONFIGURACIÓN POR MÁQUINA</h2>
+
+        <div id="machine-config-container">
+            </div>
+
+        <div class="machine-config-controls" style="text-align: right;">
+            <button onclick="addMachineConfig()" style="padding: 8px 15px; background-color: #5d9cec; color: white; border: none; border-radius: 5px; cursor: pointer;">➕ Añadir Configuración de Máquina</button>
+        </div>
+
+        <div class="notes-section">
+            <h3>Observaciones del Programador (Doble clic para resaltar el encabezado)</h3>
+            <div id="input-observaciones" contenteditable="true" style="min-height: 80px; padding: 5px;">
+                Cualquier detalle importante sobre la programación o las especificaciones del modelo.
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN DE FIREBASE (Usa tus credenciales de CIRINEO) ---
         const firebaseConfig = {
-            apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
-            authDomain: "cirineo-cec21.firebaseapp.com",
-            projectId: "cirineo-cec21",
-            storageBucket: "cirineo-cec21.firebasestorage.app",
-            messagingSenderId: "620210618284",
-            appId: "1:620210618284:web:482bab9bf74650fff18409",
-            measurementId: "G-B7YLM78RVW"
+            apiKey: "TU_API_KEY", // Reemplaza con tu clave
+            authDomain: "TU_AUTH_DOMAIN", // Reemplaza con tu dominio
+            projectId: "cirineo-v3", // Debería ser tu ID de proyecto
+            storageBucket: "TU_STORAGE_BUCKET",
+            messagingSenderId: "TU_MESSAGING_SENDER_ID",
+            appId: "TU_APP_ID"
         };
-        
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const FieldValue = firebase.firestore.FieldValue;
-        
-        // Colección de máquinas (nueva)
-        const MACHINES_COLLECTION = 'maquinas'; 
-        // Colección de registros de producción (existente)
-        const RECORDS_COLLECTION = 'registro_produccion';
+        const FICHA_COLLECTION = "fichas_tecnicas_dev"; // Colección de Desarrollo
 
-        // --- COMPONENTE ICONO ---
-        const Icon = ({ name, size = 18, className }) => {
-            const containerRef = useRef(null);
-            useEffect(() => {
-                if (containerRef.current && lucide.icons[name]) {
-                    containerRef.current.innerHTML = ''; 
-                    const svgString = lucide.icons[name].toSvg({ width: size, height: size, class: className });
-                    containerRef.current.innerHTML = svgString;
-                }
-            }, [name, size, className]);
-            return <div ref={containerRef} className="inline-block" style={{ width: size, height: size }}></div>;
-        };
-        
-        // --- COMPONENTE MODAL DE EDICIÓN ---
-        const EditMachineModal = ({ machine, onClose, onSave }) => {
-            const [data, setData] = useState({ 
-                marca: machine.marca || '', 
-                diametro: machine.diametro || '', 
-                agujas: machine.agujas || '' 
+        // --- FUNCIONES DE INTERFAZ ---
+
+        // 1. Cargar imagen y guardar como Data URL
+        let modeloImageBase64 = '';
+        document.getElementById('imageUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('modelImage');
+                    const placeholder = document.getElementById('imagePlaceholder');
+                    
+                    // Guardar la imagen en Base64
+                    modeloImageBase64 = e.target.result;
+
+                    img.src = modeloImageBase64;
+                    img.style.display = 'block';
+                    placeholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 2. Resaltar Celdas con doble clic
+        function initHighlighting() {
+            document.querySelectorAll('.data-table td, .data-table th, .notes-section h3').forEach(element => {
+                element.removeEventListener('dblclick', toggleHighlight); // Evitar duplicados
+                element.addEventListener('dblclick', toggleHighlight);
             });
-            const [loading, setLoading] = useState(false);
-            
-            const handleChange = (e) => {
-                setData({ ...data, [e.target.name]: e.target.value });
-            };
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                try {
-                    await db.collection(MACHINES_COLLECTION).doc(machine.id).update({
-                        marca: data.marca.toUpperCase().trim(),
-                        diametro: Number(data.diametro),
-                        agujas: Number(data.agujas),
-                        updatedAt: FieldValue.serverTimestamp()
-                    });
-                    onSave();
-                    onClose();
-                } catch (error) {
-                    console.error("Error saving machine data: ", error);
-                    alert("Error al guardar la configuración: " + error.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            if (!machine) return null;
-
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center border-b pb-3 mb-4">
-                            <h3 className="text-xl font-bold text-slate-800">Editar Máquina {machine.maquinaId} - {machine.name}</h3>
-                            <button onClick={onClose} className="text-slate-500 hover:text-red-600">
-                                <Icon name="x" size={24} />
-                            </button>
-                        </div>
-                        
-                        <form onSubmit={handleSubmit}>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700">Marca</label>
-                                    <input 
-                                        type="text" 
-                                        name="marca" 
-                                        value={data.marca} 
-                                        onChange={handleChange} 
-                                        className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2" 
-                                        required 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700">Diámetro (pulgadas)</label>
-                                    <input 
-                                        type="number" 
-                                        name="diametro" 
-                                        value={data.diametro} 
-                                        onChange={handleChange} 
-                                        className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2" 
-                                        step="0.1"
-                                        required 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700">Cantidad de Agujas</label>
-                                    <input 
-                                        type="number" 
-                                        name="agujas" 
-                                        value={data.agujas} 
-                                        onChange={handleChange} 
-                                        className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2" 
-                                        required 
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div className="mt-6 flex justify-end">
-                                <button 
-                                    type="submit" 
-                                    disabled={loading}
-                                    className="px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition disabled:bg-blue-400 flex items-center gap-2"
-                                >
-                                    {loading && <div className="loader w-4 h-4 border-white border-t-blue-200"></div>}
-                                    Guardar Cambios
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            );
-        };
-
-
-        // --- COMPONENTE TARJETA DE MÁQUINA ---
-        const MachineCard = ({ machine, records, onEdit }) => {
-            const groupedRecords = useMemo(() => {
-                if (!records) return [];
-                // Agrupar los registros por modelo para una visualización más limpia
-                const groups = records.reduce((acc, record) => {
-                    const key = record.modelo;
-                    if (!acc[key]) {
-                        acc[key] = { modelo: key, count: 0, latestScan: record.fecha_legible };
-                    }
-                    acc[key].count += 1;
-                    return acc;
-                }, {});
+        }
+        function toggleHighlight() {
+            let currentClass = this.className;
+            if (currentClass.includes('highlight-yellow')) {
+                this.classList.remove('highlight-yellow');
+                this.classList.add('highlight-red');
+            } else if (currentClass.includes('highlight-red')) {
+                this.classList.remove('highlight-red');
+            } else {
+                this.classList.add('highlight-yellow');
+            }
+        }
+        
+        // 3. Añadir y Eliminar Configuración de Máquina
+        let machineConfigCounter = 0;
+        const machineConfigTemplate = `
+            <div class="machine-config" id="config-{{id}}">
+                <h3 contenteditable="true">Configuración para Máquina #<span class="machine-id" contenteditable="true" data-field="maquina_principal">Ej: 37</span></h3>
                 
-                // Convertir a array y ordenar por escaneo más reciente
-                return Object.values(groups).sort((a, b) => new Date(b.latestScan) - new Date(a.latestScan));
-            }, [records]);
-            
-            // La propiedad 'maquina' en registro_produccion es el número (Ej: '1', '2', '3')
-            const machineId = machine.maquinaId || 'N/A';
-            const machineName = machine.name || `Máquina ${machineId}`;
-            const totalScans = records.length;
-            const statusColor = totalScans > 0 ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-500';
-
-            return (
-                <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow-xl border border-slate-200 hover:shadow-2xl transition-shadow duration-300">
-                    
-                    {/* Header */}
-                    <div className={`p-4 ${statusColor} border-b border-slate-200 rounded-t-lg`}>
-                        <div className="flex justify-between items-start">
-                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                <Icon name="factory" size={22} className="text-blue-600"/> 
-                                {machineName}
-                            </h3>
-                            <button 
-                                onClick={() => onEdit(machine)} 
-                                className="p-1 bg-white border border-slate-300 rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition"
-                                title="Editar configuración"
-                            >
-                                <Icon name="settings" size={16}/>
-                            </button>
-                        </div>
-                        <p className="text-xs mt-1 font-mono">ID: MQ-{machineId} | Total Escaneos: {totalScans}</p>
-                    </div>
-                    
-                    {/* Detalles */}
-                    <div className="p-4 border-b">
-                        <div className="flex justify-between text-sm text-slate-600 font-medium mb-1">
-                            <span><Icon name="tag" size={14} className="inline mr-1"/> Marca:</span>
-                            <span className="font-bold text-slate-800">{machine.marca || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-slate-600 font-medium mb-1">
-                            <span><Icon name="gauge" size={14} className="inline mr-1"/> Diámetro:</span>
-                            <span className="font-bold text-slate-800">{machine.diametro ? `${machine.diametro}"` : 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-slate-600 font-medium">
-                            <span><Icon name="columns-3" size={14} className="inline mr-1"/> Agujas:</span>
-                            <span className="font-bold text-slate-800">{machine.agujas || 'N/A'}</span>
-                        </div>
-                    </div>
-
-                    {/* Registros de Escaneo */}
-                    <div className="p-4">
-                        <h4 className="font-bold text-sm text-slate-700 mb-3 border-b pb-1">Producción Actual por Modelo</h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {groupedRecords.length > 0 ? (
-                                groupedRecords.map(group => (
-                                    <div key={group.modelo} className="bg-slate-50 p-2 rounded flex justify-between items-center border border-slate-200">
-                                        <div>
-                                            <span className="font-mono text-sm font-bold text-blue-600">{group.modelo}</span>
-                                            <p className="text-xs text-slate-500">Último: {group.latestScan}</p>
-                                        </div>
-                                        <span className="font-extrabold text-lg text-green-700 bg-green-200 px-3 py-1 rounded-full">{group.count}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-slate-500 italic text-center p-4">Sin escaneos recientes en esta máquina.</p>
-                            )}
-                        </div>
-                    </div>
+                <table class="data-table" style="margin-top: 0;">
+                    <tr>
+                        <th style="width: 25%">Nombre del Programa:</th>
+                        <td contenteditable="true" data-field="programa_nombre">P_MODELO_XX.GCODE</td>
+                        <th style="width: 25%">Máquinas Compatibles:</th>
+                        <td contenteditable="true" data-field="maquinas_compatibles">37, 38, 39</td>
+                    </tr>
+                    <tr>
+                        <th>Nombre de la Pieza:</th>
+                        <td contenteditable="true" data-field="pieza_nombre">BLUSA</td>
+                        <th>Tiempo Est. (min):</th>
+                        <td contenteditable="true" data-field="tiempo_est_min">8.5</td>
+                    </tr>
+                    <tr>
+                        <th>Peso Est. (g):</th>
+                        <td contenteditable="true" data-field="peso_est_g">183.7</td>
+                        <th>Porcentaje de Licra:</th>
+                        <td contenteditable="true" data-field="porcentaje_licra">50%</td>
+                    </tr>
+                </table>
+                
+                <h4 style="margin-top: 15px; margin-bottom: 5px; color: #006064;">ENHEBRADO Y COMPOSICIÓN</h4>
+                <div class="hilo-row">
+                    <label>Hilo 1 (Nylon/Principal):</label>
+                    <input type="text" data-field="hilo_1_nombre" placeholder="Ej: NYLON 70D DORADO">
+                    <label>Hilo 2 (Licra/Elástico):</label>
+                    <input type="text" data-field="hilo_2_nombre" placeholder="Ej: LYCRA 20D NEGRO">
+                    <label>Otros Hilos / Observaciones de Enhebrado:</label>
+                    <div contenteditable="true" data-field="enhebrado_observaciones" style="border: 1px solid #ccc; padding: 5px; min-height: 40px;">Ej: Hilo 3 (50D) en la posición 12 y 13.</div>
                 </div>
-            );
-        };
 
+                <div style="text-align: right; margin-top: 10px;">
+                    <button onclick="removeMachineConfig('config-{{id}}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">🗑️ Eliminar Configuración</button>
+                </div>
+            </div>
+        `;
 
-        // --- APP PRINCIPAL ---
-        const App = () => {
-            const [machines, setMachines] = useState([]);
-            const [records, setRecords] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [selectedMachine, setSelectedMachine] = useState(null);
+        function addMachineConfig() {
+            machineConfigCounter++;
+            const container = document.getElementById('machine-config-container');
+            const newConfigHtml = machineConfigTemplate.replaceAll('{{id}}', machineConfigCounter);
             
-            // 1. Fetch Machines (y simular si no existen)
-            useEffect(() => {
-                const unsubscribeMachines = db.collection(MACHINES_COLLECTION)
-                    .onSnapshot(snapshot => {
-                        let fetchedMachines = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data(),
-                            maquinaId: doc.id.replace('MQ-', '') // Usar el ID numérico para coincidir con `registro_produccion.maquina`
-                        }));
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newConfigHtml;
+            container.appendChild(tempDiv.firstChild);
 
-                        // Simular datos iniciales si no hay máquinas
-                        if (fetchedMachines.length === 0) {
-                            fetchedMachines = [
-                                { id: 'MQ-1', name: 'Máquina 1', maquinaId: '1', marca: 'Santoni', diametro: 18, agujas: 1200 },
-                                { id: 'MQ-2', name: 'Máquina 2', maquinaId: '2', marca: 'Matec', diametro: 24, agujas: 1600 },
-                                { id: 'MQ-3', name: 'Máquina 3', maquinaId: '3', marca: 'Lonati', diametro: 12, agujas: 800 },
-                                // Agrega más máquinas si es necesario
-                            ];
-                            // Opcional: Escribir estos datos simulados a Firestore una sola vez
-                            fetchedMachines.forEach(m => {
-                                // Usar set con merge: true para evitar sobrescribir si ya existen
-                                db.collection(MACHINES_COLLECTION).doc(m.id).set(m, { merge: true }).catch(console.error);
-                            });
-                        }
-                        
-                        // Ordenar de derecha a izquierda (en pantalla se verá de izquierda a derecha)
-                        fetchedMachines.sort((a, b) => Number(b.maquinaId) - Number(a.maquinaId));
-                        setMachines(fetchedMachines);
-                        setLoading(false);
-                    }, error => {
-                        console.error("Error fetching machines:", error);
-                        setLoading(false);
-                    });
+            // Re-inicializar el resaltado para que funcione en la nueva tabla
+            initHighlighting(); 
+        }
 
-                return () => unsubscribeMachines();
-            }, []);
-            
-            // 2. Fetch Production Records
-            useEffect(() => {
-                const unsubscribeRecords = db.collection(RECORDS_COLLECTION)
-                    // Opcional: Filtrar por fecha para no cargar toda la historia (ej: últimas 24h)
-                    // .where('fecha', '>=', new Date(Date.now() - 24 * 60 * 60 * 1000)) 
-                    .orderBy('fecha', 'desc')
-                    .onSnapshot(snapshot => {
-                        const fetchedRecords = snapshot.docs.map(doc => doc.data());
-                        setRecords(fetchedRecords);
-                    }, error => {
-                        console.error("Error fetching records:", error);
-                    });
+        function removeMachineConfig(id) {
+            document.getElementById(id).remove();
+        }
 
-                return () => unsubscribeRecords();
-            }, []);
+        // Agregar la primera configuración al cargar
+        document.addEventListener('DOMContentLoaded', () => {
+            initHighlighting();
+            addMachineConfig();
+            document.getElementById('input-fecha').textContent = new Date().toLocaleDateString('es-ES');
+        });
 
-            // Agrupar registros por Máquina ID (Ej: '1', '2', '3')
-            const recordsByMachine = useMemo(() => {
-                return records.reduce((acc, record) => {
-                    // Nota: Se asume que el campo 'maquina' en registro_produccion existe y contiene el número de máquina ('1', '2', etc.)
-                    const machineId = record.modelo?.split('-')[0] === 'M024' ? '1' : record.maquina; 
-                    if (machineId) {
-                        if (!acc[machineId]) {
-                            acc[machineId] = [];
-                        }
-                        acc[machineId].push(record);
-                    }
-                    return acc;
-                }, {});
-            }, [records]);
-            
-            // Funciones del Modal
-            const handleEdit = (machine) => {
-                setSelectedMachine(machine);
-                setIsModalOpen(true);
-            };
-            
-            const handleCloseModal = () => {
-                setSelectedMachine(null);
-                setIsModalOpen(false);
-            };
 
-            if (loading) {
-                return (
-                    <div className="flex h-screen items-center justify-center bg-slate-100">
-                        <div className="loader"></div>
-                        <p className="ml-3 text-slate-600">Cargando datos del monitor...</p>
-                    </div>
-                );
+        // --- FUNCIÓN PRINCIPAL DE GUARDADO EN FIREBASE ---
+
+        async function saveFichaTecnica() {
+            const modelo = document.getElementById('input-modelo').textContent.trim().toUpperCase();
+            if (!modelo || modelo === '[MODELO]') {
+                alert('ERROR: Debes ingresar un CÓDIGO de MODELO válido.');
+                return;
             }
 
-            return (
-                <div className="h-screen flex flex-col">
-                    
-                    {/* Header Principal */}
-                    <header className="p-4 bg-white shadow-md border-b sticky top-0 z-20">
-                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                            <Icon name="activity" size={28} className="text-blue-600"/> 
-                            Panel de Monitoreo de Producción
-                        </h1>
-                        <p className="text-sm text-slate-500 mt-1">Vista en tiempo real de la actividad de escaneo por máquina.</p>
-                    </header>
+            // 1. Recolectar Datos Generales
+            const fichaData = {
+                modelo: modelo,
+                fecha_creacion: document.getElementById('input-fecha').textContent.trim(),
+                cliente: document.getElementById('input-cliente').textContent.trim(),
+                descripcion: document.getElementById('input-descripcion').textContent.trim(),
+                talla: document.getElementById('input-talla').textContent.trim(),
+                partida_ejemplo: document.getElementById('input-partida').textContent.trim(),
+                piezas_x_bulto: document.getElementById('input-pzas-bulto').textContent.trim(),
+                referencia_interna: document.getElementById('input-referencia').textContent.trim(),
+                observaciones_programador: document.getElementById('input-observaciones').textContent.trim(),
+                imagen_url: modeloImageBase64, // Data URL o URL de Storage (si se implementa)
+                configuraciones_maquina: {}
+            };
 
-                    {/* Contenedor de Máquinas (Scroll Horizontal) */}
-                    <main className="machines-container flex-grow overflow-x-auto">
-                        
-                        {machines.length > 0 ? (
-                            machines.map(machine => (
-                                <MachineCard 
-                                    key={machine.id} 
-                                    machine={machine}
-                                    records={recordsByMachine[machine.maquinaId] || []}
-                                    onEdit={handleEdit}
-                                />
-                            ))
-                        ) : (
-                            <div className="text-center text-slate-400 w-full p-20">
-                                <Icon name="alert-triangle" size={48} className="mb-4 opacity-50"/>
-                                <p className="text-lg font-bold">No se encontraron máquinas activas.</p>
-                            </div>
-                        )}
-                    </main>
-                    
-                    {/* Modal de Edición */}
-                    {isModalOpen && selectedMachine && (
-                        <EditMachineModal
-                            machine={selectedMachine}
-                            onClose={handleCloseModal}
-                            onSave={() => alert("Configuración guardada.")}
-                        />
-                    )}
-                </div>
-            );
-        };
+            // 2. Recolectar Configuraciones de Máquina
+            const configs = document.querySelectorAll('.machine-config');
+            let hasValidConfig = false;
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+            configs.forEach((configElement, index) => {
+                const mainMachineEl = configElement.querySelector('[data-field="maquina_principal"]');
+                const maquinaPrincipal = mainMachineEl ? mainMachineEl.textContent.trim() : '';
+
+                if (maquinaPrincipal) {
+                    hasValidConfig = true;
+                    // Recolectar datos de la configuración
+                    const config = {
+                        programa_nombre: configElement.querySelector('[data-field="programa_nombre"]').textContent.trim(),
+                        maquinas_compatibles: configElement.querySelector('[data-field="maquinas_compatibles"]').textContent.trim().split(',').map(m => m.trim()).filter(m => m.length > 0),
+                        pieza_nombre: configElement.querySelector('[data-field="pieza_nombre"]').textContent.trim(),
+                        tiempo_est_min: parseFloat(configElement.querySelector('[data-field="tiempo_est_min"]').textContent.trim()) || 0,
+                        peso_est_g: parseFloat(configElement.querySelector('[data-field="peso_est_g"]').textContent.trim()) || 0,
+                        porcentaje_licra: configElement.querySelector('[data-field="porcentaje_licra"]').textContent.trim(),
+                        enhebrado: {
+                            hilo_1_nombre: configElement.querySelector('[data-field="hilo_1_nombre"]').value.trim(),
+                            hilo_2_nombre: configElement.querySelector('[data-field="hilo_2_nombre"]').value.trim(),
+                            observaciones: configElement.querySelector('[data-field="enhebrado_observaciones"]').textContent.trim()
+                        }
+                    };
+                    
+                    // Usar la máquina principal como clave del mapa
+                    fichaData.configuraciones_maquina[maquinaPrincipal] = config;
+                }
+            });
+
+            if (!hasValidConfig) {
+                 alert('ERROR: Debes ingresar al menos una Configuración de Máquina con un número de máquina principal.');
+                 return;
+            }
+            
+            // 3. Guardar en Firebase
+            try {
+                // Usamos .set(data, { merge: true }) para actualizar si ya existe o crear si no
+                await db.collection(FICHA_COLLECTION).doc(modelo).set(fichaData, { merge: true });
+                alert(`✅ Éxito: La Ficha Técnica del modelo ${modelo} ha sido guardada/actualizada en Firebase (colección: ${FICHA_COLLECTION}).`);
+                // Opcional: Recargar la página o limpiar el formulario
+            } catch (error) {
+                console.error("Error al guardar la ficha técnica: ", error);
+                alert("❌ ERROR: No se pudo guardar la ficha en Firebase. Revisa la consola para más detalles.");
+            }
+        }
+
     </script>
 </body>
 </html>
