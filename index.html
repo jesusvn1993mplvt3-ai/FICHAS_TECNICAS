@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Papeletas - Cirineo v3.5 (PDF Fix)</title>
+    <title>Generador de Papeletas - Cirineo v3.5 (PZAS/HR Fix 2)</title>
     
     <link rel="icon" href="https://raw.githubusercontent.com/jesusvn1993mplvt3-ai/CIRINEO/refs/heads/main/icon.ico">
     
@@ -130,13 +130,20 @@
             const order = labelData; 
             const subPiece = order.subPiecesData ? order.subPiecesData.find(sp => sp.pieza === order.piezaNombre) : (order.subPiecesData?.[0] || {});
             
-            const materialNylon = order.threading ? order.threading.find(t => t.material && t.material.toUpperCase().includes('NYLON')) : null;
-            const materialLycra = order.threading ? order.threading.find(t => t.material && t.material.toUpperCase().includes('LYCRA')) : null;
-            const lycraText = materialLycra ? materialLycra.material.replace(/LYCRA/i, '').trim() : (order.threading && order.threading[1] ? order.threading[1].material : 'N/A');
-            const nylonText = materialNylon ? materialNylon.material.replace(/NYLON/i, '').trim() : (order.threading && order.threading[0] ? order.threading[0].material : 'N/A');
+            // Los datos de Nylon y Lycra siguen siendo leídos, pero ya no se muestran en la etiqueta.
+            // const materialNylon = order.threading ? order.threading.find(t => t.material && t.material.toUpperCase().includes('NYLON')) : null;
+            // const materialLycra = order.threading ? order.threading.find(t => t.material && t.material.toUpperCase().includes('LYCRA')) : null;
+            // const lycraText = materialLycra ? materialLycra.material.replace(/LYCRA/i, '').trim() : (order.threading && order.threading[1] ? order.threading[1].material : 'N/A');
+            // const nylonText = materialNylon ? materialNylon.material.replace(/NYLON/i, '').trim() : (order.threading && order.threading[0] ? order.threading[0].material : 'N/A');
             
             const barcodeValue = order.packageCode; 
             const fechaEntrega = order.fechaEntrega || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX');
+
+            // --- Cálculos de Rendimiento ---
+            const tiempo = parseFloat(subPiece?.tiempo);
+            const pzas1hr = tiempo > 0 ? (60 / tiempo).toFixed(1) : '---'; // 60 minutos / tiempo por pieza
+            const pzas12hrs = tiempo > 0 ? (720 / tiempo).toFixed(1) : '---'; // 720 minutos (12 horas) / tiempo por pieza
+            // ------------------------------------
 
             useEffect(() => {
                 if (svgRef.current && barcodeValue) {
@@ -182,14 +189,20 @@
                         </div>
                     </div>
                     <div className="lbl-row row-details">
+                        
+                        {/* Izquierda: Pzas/Hr y Pzas/12Hrs (NUEVO) */}
                         <div style={{width: '50%', display: 'flex', flexDirection: 'column', borderRight: '2px solid black'}}>
-                            <div style={{flex: 1, display: 'flex', alignItems: 'center', borderBottom: '1px solid black', padding: '0 5px'}}>
-                                <span className="lbl-title" style={{width: '50px'}}>NYLON</span><span className="lbl-small truncate" style={{fontSize: '14px'}} title={nylonText}>{nylonText.substring(0, 18)}</span>
+                            <div className="lbl-col" style={{flex: 1, borderBottom: '1px solid black', padding: '2px', textAlign: 'center'}}>
+                                <div className="lbl-title" style={{fontSize: '14px'}}>PZAS / 1 HR</div>
+                                <div className="lbl-big" style={{fontSize: '32px', lineHeight: '1'}}>{pzas1hr}</div>
                             </div>
-                            <div style={{flex: 1, display: 'flex', alignItems: 'center', padding: '0 5px'}}>
-                                <span className="lbl-title" style={{width: '50px'}}>LYCRA</span><span className="lbl-small truncate" style={{fontSize: '14px'}} title={lycraText}>{lycraText.substring(0, 18)}</span>
+                            <div className="lbl-col" style={{flex: 1, padding: '2px', textAlign: 'center'}}>
+                                <div className="lbl-title" style={{fontSize: '14px'}}>PZAS / 12 HRS</div>
+                                <div className="lbl-big" style={{fontSize: '32px', lineHeight: '1'}}>{pzas12hrs}</div>
                             </div>
                         </div>
+                        
+                        {/* Derecha: Talla, Peso (g), Tiempo (min) (Original, REUBICADO) */}
                         <div style={{width: '50%', display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr'}}>
                             <div className="lbl-col" style={{borderBottom: '1px solid black', borderRight: '1px solid black', padding: '2px'}}>
                                 <div className="lbl-title">TALLA</div><div className="lbl-medium" style={{fontSize: '20px'}}>{subPiece?.talla || 'UNI'}</div>
