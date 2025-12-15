@@ -2,329 +2,428 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Almacén de Fichas Técnicas - Desarrollo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Super Scanner Bros. - Tejedor Joel</title>
+    <meta name="description" content="Escáner Gamificado de Producción inspirado en Mario Bros.">
+
+    <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/d/d1/Barcode_Scanner_icon.png">
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/d/d1/Barcode_Scanner_icon.png">
     
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    
-    <style>
-        /* Estilos base para la impresión en Carta */
-        @page { size: letter; margin: 0.5in; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
-        .ficha-container { width: 8.5in; min-height: 11in; margin: 0 auto; background-color: white; padding: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); box-sizing: border-box; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 3px solid #333; padding-bottom: 10px; }
-        .header h1 { color: #1a237e; margin: 0; font-size: 1.5em; }
-        .image-container { width: 150px; height: 150px; border: 1px solid #ccc; background-color: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-right: 20px; position: relative; }
-        .image-container img { width: 100%; height: 100%; object-fit: contain; }
-        .image-placeholder { color: #555; font-style: italic; }
-        @media print { .control-panel, .btn-print, .config-controls { display: none !important; } }
-        
-        /* Estilos de la Tabla */
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .data-table th, .data-table td { border: 1px solid #000; padding: 8px; text-align: left; }
-        .data-table th { background-color: #f0f0f0; font-weight: bold; width: 20%; }
-        .data-table td { width: 30%; min-height: 30px; }
-        .editable-label { font-weight: bold; color: #444; }
 
-        /* Estilos Específicos de Configuración de Pieza/Talla */
-        .pieza-config {
-            border: 2px solid #5d9cec;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            background-color: #e3f2fd;
+    <style>
+        /* ESTÉTICA MARIO BROS */
+        body { background-color: #0d0d0d; color: white; font-family: 'sans-serif'; touch-action: manipulation; overscroll-behavior: none; }
+        #root, .app-container { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+        
+        /* Animación de Recoger Moneda/Hongo */
+        .flash-mario { 
+            animation: flashMarioAnim 0.3s ease-out; 
+            /* Se aplica al contenedor principal para que la pantalla parpadee */
         }
-        .pieza-config h3 {
-            background-color: #5d9cec;
-            color: white;
-            padding: 5px 10px;
-            margin: -15px -15px 15px -15px;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
+        @keyframes flashMarioAnim { 
+            0% { background-color: rgba(255, 69, 0, 0.5); } /* Rojo Mario */
+            50% { background-color: rgba(30, 144, 255, 0.5); } /* Azul Mario */
+            100% { background-color: #0d0d0d; } 
         }
-        .hilo-row input, .hilo-row textarea {
-            padding: 4px;
-            border: 1px solid #ccc;
-            width: 100%;
-            box-sizing: border-box;
+
+        /* Estilos de Bloque de Ladrillos para el Escáner (Proporción 6:1) */
+        .camera-container-modal { 
+            width: 100%; 
+            height: 0; 
+            padding-top: 16.66%; 
+            overflow: hidden; 
+            position: relative; 
+            background: #444; /* Fondo oscuro del bloque */
+            border-top: 5px solid #a0522d; /* Borde superior tipo ladrillo */
+            border-bottom: 5px solid #a0522d; /* Borde inferior tipo ladrillo */
+            flex-shrink: 0;
         }
-        .hilo-row label {
-            display: block;
-            margin-top: 5px;
-            font-size: 0.9em;
-            font-weight: bold;
+        #reader-modal { 
+            position: absolute; 
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%; 
         }
-        /* Estilos de inputs editables */
-        [contenteditable="true"] {
-            min-width: 100px;
-            display: inline-block;
-            cursor: text;
-        }
-        .data-table td [contenteditable="true"] {
-            border: 1px dashed #aaa;
-            padding: 2px 4px;
-            min-height: 20px;
-            display: block;
-        }
+        #reader-modal a { display: none !important; }
     </style>
 </head>
 <body>
+    <div id="root"></div>
 
-    <div class="ficha-container">
-        
-        <div class="control-panel">
-            <h3>Control de Ficha</h3>
-            <input type="file" id="imageUpload" accept="image/*" style="display: block; margin-bottom: 10px;">
-            <button onclick="saveFichaTecnica()" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">💾 Guardar/Actualizar Ficha</button>
-            <button class="btn-print" onclick="window.print()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">🖨️ Imprimir Ficha</button>
-            <hr style="margin: 15px 0;">
-        </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-        <div class="header">
-            <div style="display: flex; align-items: center;">
-                <div class="image-container">
-                    <img id="modelImage" src="" alt="Imagen del Modelo" style="display: none;">
-                    <span id="imagePlaceholder" class="image-placeholder">Imagen del Modelo</span>
-                </div>
-                <div>
-                    <h1>FICHA TÉCNICA - MODELO <span id="input-modelo" contenteditable="true" style="color: #00008b; border-bottom: 1px dashed #ccc; padding: 2px;">[MODELO]</span></h1>
-                    <p style="font-size: 0.8em; margin: 5px 0 0 0;">Fecha de Creación: <span id="input-fecha" contenteditable="true" style="border-bottom: 1px dashed #ccc; padding: 2px;">DD/MM/AAAA</span></p>
-                </div>
-            </div>
-        </div>
-
-        <table class="data-table" id="tabla-datos-generales">
-            <tbody>
-                <tr>
-                    <td class="editable-label">CLIENTE:</td>
-                    <td><span id="input-cliente" contenteditable="true"></span></td>
-                    <td class="editable-label">DESCRIPCIÓN GENERAL:</td>
-                    <td><span id="input-descripcion" contenteditable="true">Ej: BOXER CORTO TIPO FAJA</span></td>
-                    <td class="editable-label">COMPOSICIÓN:</td>
-                    <td><span id="input-composicion" contenteditable="true">Ej: 89% POLIAMIDA / 11% ELASTANO</span></td>
-                </tr>
-                <tr>
-                    <td class="editable-label">PARTIDA EJEMPLO:</td>
-                    <td><span id="input-partida" contenteditable="true"></span></td>
-                    <td class="editable-label">REFERENCIA INTERNA:</td>
-                    <td><span id="input-referencia" contenteditable="true"></span></td>
-                    <td class="editable-label">PROCESOS (CONFECCIÓN):</td>
-                    <td><span id="input-procesos" contenteditable="true">Ej: Orleado, Recta, Overlock, Flatht, Rematadora.</span></td>
-                </tr>
-            </tbody>
-        </table>
-        
-        <h2 style="margin-top: 30px; color: #1a237e; border-bottom: 1px solid #ccc;">DETALLE POR PIEZA / TALLA</h2>
-
-        <div id="pieza-config-container">
-            </div>
-
-        <div class="config-controls" style="text-align: right;">
-            <button onclick="addPiezaConfig()" style="padding: 8px 15px; background-color: #5d9cec; color: white; border: none; border-radius: 5px; cursor: pointer;">➕ Añadir Configuración de Pieza/Talla</button>
-        </div>
-
-        <div class="notes-section">
-            <h3 style="margin-top: 20px; font-size: 1.2em; color: #333;">Observaciones del Programador / Notas de Teñido</h3>
-            <div id="input-observaciones" contenteditable="true" style="min-height: 80px; padding: 5px; border: 1px solid #ccc;">
-                Ej: Teñido en Cocoa. Cargas de 17 KG.
-            </div>
-        </div>
-        
-    </div>
-
-    <script>
-        // --- CONFIGURACIÓN DE FIREBASE (Reemplaza con tus credenciales) ---
         const firebaseConfig = {
-            apiKey: "TU_API_KEY", 
-            authDomain: "TU_AUTH_DOMAIN",
-            projectId: "cirineo-v3", 
-            storageBucket: "TU_STORAGE_BUCKET",
-            messagingSenderId: "TU_MESSAGING_SENDER_ID",
-            appId: "TU_APP_ID"
+            apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
+            authDomain: "cirineo-cec21.firebaseapp.com",
+            projectId: "cirineo-cec21",
+            storageBucket: "cirineo-cec21.firebasestorage.app",
+            messagingSenderId: "620210618284",
+            appId: "1:620210618284:web:482bab9bf74650fff18409",
+            measurementId: "G-B7YLM78RVW"
         };
-        // Inicialización
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const FICHA_COLLECTION = "fichas_tecnicas_dev"; // Colección de Desarrollo para Fichas
+        const FieldValue = firebase.firestore.FieldValue;
 
-        // --- FUNCIONES DE INTERFAZ Y LÓGICA ---
+        const Icon = ({ name, size = 24, className, onClick }) => {
+            const ref = useRef(null);
+            useEffect(() => {
+                if (ref.current && lucide.icons[name]) {
+                    ref.current.innerHTML = lucide.icons[name].toSvg({ width: size, height: size, class: className });
+                }
+            }, [name, className]);
+            return <span ref={ref} onClick={onClick} className={`inline-flex items-center justify-center ${onClick ? 'cursor-pointer' : ''}`}></span>;
+        };
 
-        let modeloImageBase64 = '';
-        document.getElementById('imageUpload').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = document.getElementById('modelImage');
-                    const placeholder = document.getElementById('imagePlaceholder');
+        // *** FUNCIÓN DE AUDIO MARIO BROS ***
+        const playMarioSound = (type) => {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                
+                // Simulación de sonidos clásicos
+                if (type === 'success') {
+                    // Moneda/Hongo - Dos tonos ascendentes
+                    osc.type = 'square';
+                    gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+                    osc.frequency.setValueAtTime(500, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(700, ctx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.1);
+                } else if (type === 'error') {
+                    // Daño/Game Over - Tono descendente
+                    osc.type = 'sawtooth';
+                    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+                    osc.frequency.setValueAtTime(300, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.2);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.2);
+                } else if (type === 'warning') {
+                     // Bloque GOLPEADO/Advertencia
+                    osc.type = 'triangle';
+                    gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+                    osc.frequency.setValueAtTime(200, ctx.currentTime);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.05);
+                }
+            } catch(e) {
+                console.error("Audio API error:", e);
+            }
+        };
+
+        // --- COMPONENTE MODAL DEL ESCÁNER ---
+        const QuickScannerModal = ({ isVisible, onClose, ordersCache, onScanSaved }) => {
+            const [scans, setScans] = useState([]); 
+            const [scanStatus, setScanStatus] = useState({ message: 'Preparando el mundo...', type: 'info' });
+            const [isSaving, setIsSaving] = useState(false);
+            const scannerRef = useRef(null);
+            const SCAN_INTERVAL_MS = 1500; 
+            const appContainerRef = useRef(null); // Para la animación
+
+            // 1. Manejo de la cámara al abrir/cerrar
+            useEffect(() => {
+                if (isVisible) {
+                    setScans([]); 
+                    setScanStatus({ message: 'Preparando el mundo...', type: 'info' });
                     
-                    modeloImageBase64 = e.target.result;
+                    setTimeout(() => {
+                        const html5QrcodeScanner = new Html5QrcodeScanner(
+                            "reader-modal", 
+                            { 
+                                fps: 5, 
+                                qrbox: { width: 280, height: 40 }, // Proporción ancha
+                                aspectRatio: 1.0, 
+                                videoConstraints: { facingMode: "environment" } 
+                            },
+                            false
+                        );
 
-                    img.src = modeloImageBase64;
-                    img.style.display = 'block';
-                    placeholder.style.display = 'none';
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+                        const onScanSuccess = (decodedText) => {
+                            handleQuickScan(decodedText);
+                            if (scannerRef.current) {
+                                scannerRef.current.pause(); 
+                                setTimeout(() => scannerRef.current.resume(), SCAN_INTERVAL_MS); 
+                            }
+                        };
 
-        // 2. Añadir y Eliminar Configuración de Pieza/Talla
-        let piezaConfigCounter = 0;
-        const piezaConfigTemplate = `
-            <div class="pieza-config" id="config-{{id}}">
-                <h3>Detalle de Pieza/Talla #<span class="config-id">{{id}}</span></h3>
-                
-                <table class="data-table" style="margin-top: 0;">
-                    <tr>
-                        <th style="width: 20%">PIEZA:</th>
-                        <td><input type="text" data-field="pieza" value="" placeholder="Ej: BOXER, MANGA L, FRENTE"></td>
-                        <th style="width: 20%">TALLA:</th>
-                        <td><input type="text" data-field="talla" value="" placeholder="Ej: CHICA, UNITALLA, LIENZO"></td>
-                        <th style="width: 20%">CÓDIGO COMPLETO:</th>
-                        <td><input type="text" data-field="codigo_pieza_completo" value="" placeholder="Ej: B01S30CH"></td>
-                    </tr>
-                    <tr>
-                        <th>MÁQUINA PRINCIPAL:</th>
-                        <td><input type="text" data-field="maquina_principal" value="" placeholder="Ej: 30, 38"></td>
-                        <th>MÁQUINAS COMPATIBLES:</th>
-                        <td><input type="text" data-field="maquinas_compatibles" value="" placeholder="Ej: 37, 38, 39 (separadas por coma)"></td>
-                        <th>NOMBRE DEL PROGRAMA:</th>
-                        <td><input type="text" data-field="programa_nombre" value="" placeholder="Ej: P_MODELO_XX.GCODE"></td>
-                    </tr>
-                    <tr>
-                        <th>PESO EST. (g):</th>
-                        <td><input type="number" data-field="peso_est_g" value="" placeholder="Ej: 41, 183.7"></td>
-                        <th>TIEMPO EST. (min - formato HH:MM:SS o decimal):</th>
-                        <td><input type="text" data-field="tiempo_est_min" value="" placeholder="Ej: 00:05:38 o 5.63"></td>
-                        <th>% LICRA / ELASTANO:</th>
-                        <td><input type="text" data-field="porcentaje_licra" value="" placeholder="Ej: 50%"></td>
-                    </tr>
-                </table>
-                
-                <h4 style="margin-top: 15px; margin-bottom: 5px; color: #006064;">ENHEBRADO Y COMPOSICIÓN</h4>
-                <div class="hilo-row">
-                    <label>Hilo 1 (Nylon/Principal):</label>
-                    <input type="text" data-field="hilo_1_nombre" placeholder="Ej: NYLON 70/68 DORADO">
-                    <label>Hilo 2 (Licra/Elástico):</label>
-                    <input type="text" data-field="hilo_2_nombre" placeholder="Ej: LICRA GUATEMALA 40/40/34">
-                    <label>Observaciones de Enhebrado:</label>
-                    <textarea data-field="enhebrado_observaciones" rows="3" placeholder="Ej: Hilo 3 (50D) en la posición 12 y 13."></textarea>
-                </div>
+                        html5QrcodeScanner.render(onScanSuccess, (errorMessage) => {
+                            if (scanStatus.message === 'Preparando el mundo...') {
+                                setScanStatus({ type: 'info', message: 'Bloque de escaneo listo. ¡A golpear!' });
+                            }
+                        });
+                        scannerRef.current = html5QrcodeScanner;
+                    }, 100);
+                } else {
+                    if (scannerRef.current) {
+                        scannerRef.current.clear().catch(err => console.error("Error clearing scanner on close", err));
+                        scannerRef.current = null;
+                    }
+                }
+                return () => { if (scannerRef.current) scannerRef.current.clear().catch(err => {}); };
+            }, [isVisible]);
 
-                <div style="text-align: right; margin-top: 10px;">
-                    <button onclick="removePiezaConfig('config-{{id}}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">🗑️ Eliminar Configuración</button>
-                </div>
-            </div>
-        `;
-
-        function addPiezaConfig() {
-            piezaConfigCounter++;
-            const container = document.getElementById('pieza-config-container');
-            const newConfigHtml = piezaConfigTemplate.replaceAll('{{id}}', piezaConfigCounter);
-            
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newConfigHtml;
-            container.appendChild(tempDiv.firstChild);
-        }
-
-        function removePiezaConfig(id) {
-            document.getElementById(id).remove();
-        }
-
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', () => {
-            addPiezaConfig();
-            document.getElementById('input-fecha').textContent = new Date().toLocaleDateString('es-ES');
-        });
-
-
-        // --- FUNCIÓN PRINCIPAL DE GUARDADO EN FIREBASE ---
-
-        async function saveFichaTecnica() {
-            const modelo = document.getElementById('input-modelo').textContent.trim().toUpperCase();
-            if (!modelo || modelo === '[MODELO]') {
-                alert('ERROR: Debes ingresar un CÓDIGO de MODELO válido (Ej: B01S, M029).');
-                return;
-            }
-
-            // 1. Recolectar Datos Generales
-            const fichaData = {
-                modelo: modelo,
-                fecha_creacion: document.getElementById('input-fecha').textContent.trim(),
-                cliente: document.getElementById('input-cliente').textContent.trim(),
-                descripcion_general: document.getElementById('input-descripcion').textContent.trim(),
-                composicion: document.getElementById('input-composicion').textContent.trim(),
-                partida_ejemplo: document.getElementById('input-partida').textContent.trim(),
-                referencia_interna: document.getElementById('input-referencia').textContent.trim(),
-                procesos_confeccion_resumen: document.getElementById('input-procesos').textContent.trim(),
-                observaciones_programador: document.getElementById('input-observaciones').textContent.trim(),
-                imagen_url: modeloImageBase64,
-                timestamp_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
-                configuraciones_detalle: []
+            // Animación de éxito
+            const triggerMarioFlash = () => {
+                if (appContainerRef.current) {
+                    appContainerRef.current.classList.add('flash-mario');
+                    setTimeout(() => {
+                        appContainerRef.current.classList.remove('flash-mario');
+                    }, 300);
+                }
             };
 
-            // 2. Recolectar Configuraciones de Pieza/Talla
-            const configs = document.querySelectorAll('.pieza-config');
-            let hasValidConfig = false;
 
-            configs.forEach((configElement, index) => {
-                // Función para obtener el valor de un campo, ya sea de input o textarea
-                const getFieldValue = (field) => {
-                    const el = configElement.querySelector(`[data-field="${field}"]`);
-                    return el ? el.value.trim() || el.textContent.trim() : '';
-                };
-                
-                const pieza = getFieldValue('pieza');
-                const talla = getFieldValue('talla');
-                const codigo = getFieldValue('codigo_pieza_completo');
+            // 2. LÓGICA DE ESCANEO INTELIGENTE
+            const handleQuickScan = (rawCode) => {
+                if (!rawCode) return;
+                const scannedCode = rawCode.trim().toUpperCase().replace(/'/g, '-').replace(/\?/g, '_');
 
-                // Necesitamos al menos el nombre de la pieza/talla/código para considerarlo válido
-                if (pieza && talla && codigo) {
-                    hasValidConfig = true;
-                    
-                    const config = {
-                        pieza: pieza,
-                        talla: talla,
-                        codigo_pieza_completo: codigo,
-                        programa_nombre: getFieldValue('programa_nombre'),
-                        maquina_principal: getFieldValue('maquina_principal'),
-                        // Separar máquinas compatibles por coma y limpiar espacios
-                        maquinas_compatibles: getFieldValue('maquinas_compatibles').split(',').map(m => m.trim()).filter(m => m.length > 0), 
-                        
-                        peso_est_g: parseFloat(getFieldValue('peso_est_g')) || 0,
-                        tiempo_est_min: getFieldValue('tiempo_est_min'), // Mantener formato HH:MM:SS o decimal
-                        porcentaje_licra: getFieldValue('porcentaje_licra'),
-                        
-                        enhebrado: {
-                            hilo_1_nombre: getFieldValue('hilo_1_nombre'),
-                            hilo_2_nombre: getFieldValue('hilo_2_nombre'),
-                            observaciones: getFieldValue('enhebrado_observaciones')
-                        }
-                    };
-                    
-                    fichaData.configuraciones_detalle.push(config);
+                if (scans.some(s => s.code === scannedCode)) {
+                    setScanStatus({ message: `¡Ya tienes ese bloque! (${scannedCode})`, type: 'warning' });
+                    playMarioSound('warning'); // Tono de advertencia
+                    return;
                 }
-            });
 
-            if (!hasValidConfig) {
-                 alert('ERROR: Debes ingresar al menos una configuración válida (con PIEZA, TALLA y CÓDIGO) en el detalle.');
-                 return;
-            }
-            
-            // 3. Guardar en Firebase
-            try {
-                // El modelo es el ID del documento
-                await db.collection(FICHA_COLLECTION).doc(modelo).set(fichaData, { merge: true });
-                alert(`✅ Éxito: La Ficha Técnica del modelo ${modelo} ha sido guardada/actualizada en Firebase (colección: ${FICHA_COLLECTION}).`);
-            } catch (error) {
-                console.error("Error al guardar la ficha técnica: ", error);
-                alert("❌ ERROR: No se pudo guardar la ficha en Firebase. Revisa la consola para más detalles.");
-            }
-        }
+                let foundPackage = null;
+                for (const order of ordersCache) {
+                    if (order.progreso) {
+                        const pkg = order.progreso.find(p => p.codigoUnico === scannedCode);
+                        if (pkg) {
+                            foundPackage = { 
+                                code: scannedCode, 
+                                orderId: order.id, 
+                                modelo: order.codigo, 
+                                partida: order.partida,
+                                piezaNombre: pkg.piezaNombre,
+                                paquete_indice: pkg.paqueteNum, 
+                                paquete_total: pkg.paquetesDePieza, 
+                                piezas_en_paquete: pkg.cantidad,
+                                // *** CAMBIO 1: Nombre del tejedor ***
+                                tejedor: "Joel" 
+                            };
+                            break;
+                        }
+                    }
+                }
+
+                if (!foundPackage) {
+                    setScanStatus({ message: `¡K.O.! Bloque NO encontrado. (${scannedCode})`, type: 'error' });
+                    playMarioSound('error'); // Tono de error
+                    return;
+                }
+                
+                // Éxito: Moneda/Hongo
+                playMarioSound('success'); 
+                triggerMarioFlash();
+                setScans(prev => [...prev, foundPackage]);
+                setScanStatus({ type: 'success', message: `¡Moneda! Paquete ${foundPackage.paquete_indice} de ${foundPackage.modelo}` });
+            };
+
+            // 3. Guardar todos los escaneos
+            const confirmScans = async () => {
+                if (scans.length === 0 || isSaving) return;
+                setIsSaving(true);
+                setScanStatus({ message: `Entrando al tubo de Warp...`, type: 'info' });
+
+                let saved = 0, duplicates = 0, errors = 0;
+                const batch = db.batch();
+                
+                for (const scan of scans) {
+                    try {
+                        const globalScanCheck = await db.collection('registro_produccion').where('codigo_paquete', '==', scan.code).get();
+                        if (!globalScanCheck.empty) { 
+                            duplicates++; 
+                            continue; 
+                        }
+
+                        const docRef = db.collection('registro_produccion').doc();
+                        batch.set(docRef, {
+                            codigo_paquete: scan.code, 
+                            orderId: String(scan.orderId), 
+                            fecha: FieldValue.serverTimestamp(),
+                            fecha_legible: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '/'), 
+                            tejedor: scan.tejedor, 
+                            tipo: "produccion",
+                            modelo: scan.modelo,
+                            partida: scan.partida,
+                            paquete_indice: scan.paquete_indice, 
+                            paquete_total: scan.paquete_total,
+                            piezas_en_paquete: scan.piezas_en_paquete
+                        });
+                        saved++;
+
+                    } catch (error) {
+                        console.error("Error saving scan:", error);
+                        errors++;
+                    }
+                }
+
+                if (saved > 0) await batch.commit();
+
+                setIsSaving(false);
+                onScanSaved(saved); 
+                onClose();
+                alert(`¡Nivel completado!\n✅ Guardados: ${saved}\n⚠️ Repetidos: ${duplicates}\n❌ Errores: ${errors}`);
+            };
+
+            const handleRemoveScan = (codeToRemove) => setScans(prev => prev.filter(scan => scan.code !== codeToRemove));
+
+            if (!isVisible) return null;
+
+            // Colores temáticos de Mario
+            const statusClass = scanStatus.type === 'info' ? 'bg-blue-600' : (scanStatus.type === 'success' ? 'bg-green-600' : (scanStatus.type === 'warning' ? 'bg-yellow-600' : 'bg-red-600'));
+
+            return (
+                <div className="fixed inset-0 bg-black z-50 flex flex-col" ref={appContainerRef}>
+                    
+                    {/* ENCABEZADO - Ladrillos Marrones */}
+                    <div className="p-3 bg-red-800 border-b-4 border-yellow-800 flex justify-between items-center shadow-md shrink-0">
+                        <h2 className="text-lg font-bold flex items-center gap-2 text-yellow-400"><Icon name="sword" className="text-yellow-400"/> MUNDO DE TEJIDO</h2>
+                        <button onClick={onClose} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-bold flex items-center gap-1"><Icon name="castle" size={16}/> SALIR</button>
+                    </div>
+
+                    {/* ZONA DE ESCANEO - Bloque de Ladrillos 6:1 */}
+                    <div className="camera-container-modal shrink-0">
+                        <div id="reader-modal"></div>
+                        {/* Indicador de estado */}
+                        <div className={`absolute bottom-0 w-full text-center py-1 text-xs font-bold ${statusClass}`}>{scanStatus.message}</div>
+                    </div>
+                    
+                    <div className="flex flex-col flex-grow bg-slate-900">
+                        {/* Indicador del Buffer - Ladrillo Amarillo/Oro */}
+                        <div className="p-2 text-xs font-bold flex justify-between uppercase tracking-wider text-slate-400 border-b border-slate-700 shrink-0 bg-yellow-900/50">
+                            <span className="text-yellow-400">Bloques Recolectados</span>
+                            <span className="text-white">{scans.length}</span>
+                        </div>
+                        
+                        <div className="flex-grow overflow-y-auto p-3 space-y-2">
+                            {scans.length === 0 ? (
+                                <div className="text-center text-slate-600 py-4 text-sm italic">¡Salta y golpea un bloque de escaneo!</div>
+                            ) : (
+                                scans.map(scan => (
+                                    <div 
+                                        key={scan.code} 
+                                        // Estilo de bloque recolectado (rojo con borde amarillo)
+                                        className="flex justify-between items-center bg-red-900/80 p-2 rounded border border-yellow-700 border-l-4 border-yellow-500"
+                                    >
+                                        <div>
+                                            <span className="font-mono font-bold text-base text-white block">{scan.code}</span>
+                                            <span className="text-xs text-yellow-300">NIVEL: {scan.modelo} / PQT: {scan.paquete_indice}/{scan.paquete_total}</span>
+                                        </div>
+                                        <button onClick={() => handleRemoveScan(scan.code)} className="text-red-400 p-1 bg-red-700 rounded-full flex items-center justify-center"><Icon name="trash-2" size={16}/></button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        
+                        {/* BOTÓN - TUBO DE WARP (Verde) */}
+                        <div className="p-3 bg-slate-800 border-t-4 border-lime-800 shrink-0">
+                            <button 
+                                onClick={confirmScans}
+                                disabled={scans.length === 0 || isSaving}
+                                className={`w-full py-3 rounded-t-xl rounded-b-lg font-bold text-lg shadow-2xl flex items-center justify-center gap-2 transition-all
+                                    ${scans.length > 0 && !isSaving ? 'bg-lime-600 text-white hover:bg-lime-500 shadow-lime-500/50' : 'bg-slate-700 text-slate-500'}
+                                `}
+                            >
+                                {isSaving ? <><Icon name="loader-2" className="animate-spin"/> ENTRANDO AL WARP...</> : <><Icon name="arrow-down-to-dot"/> WARP A BASE DE DATOS ({scans.length})</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- COMPONENTE PRINCIPAL ---
+        const ScannerG6 = () => {
+            const [ordersCache, setOrdersCache] = useState([]);
+            const [statusMsg, setStatusMsg] = useState("Cargando el Reino Champiñón...");
+            const [errorMsg, setErrorMsg] = useState("");
+            const [showScanner, setShowScanner] = useState(false);
+            const [lastSaveCount, setLastSaveCount] = useState(0);
+
+            // Cargar datos
+            useEffect(() => {
+                const unsubscribe = db.collection('orders')
+                    .where('status', '!=', 'ARCHIVADO')
+                    .onSnapshot(snapshot => {
+                        const loadedOrders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                        setOrdersCache(loadedOrders);
+                        setStatusMsg(`¡Base de datos cargada! ${loadedOrders.length} mundos activos.`);
+                    }, err => {
+                        setErrorMsg("Error: Bowser atacó la base de datos: " + err.message);
+                    });
+                return () => unsubscribe();
+            }, []);
+
+            return (
+                <div className="app-container bg-red-950 text-white relative">
+
+                    {/* HEADER - MARIO THEME */}
+                    <div className="p-3 bg-red-800 flex justify-between items-center shadow-md z-20 shrink-0 border-b-4 border-yellow-800">
+                        <div className="font-bold flex items-center gap-2">
+                            <Icon name="crown" className="text-yellow-400" />
+                            <span>TEJEDOR: JOEL</span>
+                        </div>
+                        <div className="text-xs text-yellow-400 font-mono">{ordersCache.length} MUNDOS</div>
+                    </div>
+
+                    {/* STATUS BAR */}
+                    {(errorMsg || statusMsg) && (
+                        <div className={`p-1 text-xs text-center font-mono truncate ${errorMsg ? 'bg-red-900 text-white' : 'bg-slate-700 text-slate-300'} shrink-0`}>
+                            {errorMsg || statusMsg}
+                        </div>
+                    )}
+
+                    {/* MAIN CONTENT / BUTTON */}
+                    <div className="flex-grow flex flex-col items-center justify-center p-4 bg-red-900">
+                        <button 
+                            onClick={() => setShowScanner(true)} 
+                            // Botón de Inicio con apariencia de Hongo Rojo
+                            className="bg-red-600 hover:bg-red-500 text-white px-8 py-6 rounded-full font-bold text-2xl shadow-2xl flex flex-col items-center gap-4 transition transform active:scale-95 border-8 border-white/50"
+                        >
+                            <Icon name="star" size={48} className="text-yellow-400 animate-pulse"/>
+                            <span>¡VAMOS! INICIAR NIVEL</span>
+                        </button>
+                        {lastSaveCount > 0 && (
+                            // Indicador de Nivel completado
+                            <div className="mt-6 bg-lime-700 text-white p-3 rounded-lg text-sm font-bold animate-pulse shadow-md">
+                                🌟 ¡PUNTAJE! {lastSaveCount} Bloques guardados.
+                            </div>
+                        )}
+                        <div className="mt-8 text-center text-red-300 text-sm">
+                            <Icon name="flag-triangle-right" size={16} className="inline-block mr-1 text-red-500"/>
+                            Niveles (órdenes) activos: {ordersCache.length}
+                        </div>
+                    </div>
+                    
+                    {/* MODAL DEL ESCANER */}
+                    <QuickScannerModal
+                        isVisible={showScanner}
+                        onClose={() => setShowScanner(false)}
+                        ordersCache={ordersCache}
+                        onScanSaved={setLastSaveCount} 
+                    />
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ScannerG6 />);
     </script>
 </body>
 </html>
