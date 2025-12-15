@@ -26,30 +26,26 @@
         /* Animación de Recoger Moneda/Hongo */
         .flash-mario { 
             animation: flashMarioAnim 0.3s ease-out; 
-            /* Se aplica al contenedor principal para que la pantalla parpadee */
         }
         @keyframes flashMarioAnim { 
-            0% { background-color: rgba(255, 69, 0, 0.5); } /* Rojo Mario */
-            50% { background-color: rgba(30, 144, 255, 0.5); } /* Azul Mario */
+            0% { background-color: rgba(255, 69, 0, 0.5); } 
+            50% { background-color: rgba(30, 144, 255, 0.5); } 
             100% { background-color: #0d0d0d; } 
         }
 
-        /* Estilos de Bloque de Ladrillos para el Escáner (Proporción 6:1) */
+        /* Estilos de Bloque de Ladrillos para el Escáner */
         .camera-container-modal { 
             width: 100%; 
-            height: 0; 
-            padding-top: 16.66%; 
+            aspect-ratio: 1; /* Esto ayuda a que el video se vea bien */
+            max-height: 45vh; /* Altura máxima del contenedor de video */
             overflow: hidden; 
             position: relative; 
-            background: #444; /* Fondo oscuro del bloque */
-            border-top: 5px solid #a0522d; /* Borde superior tipo ladrillo */
-            border-bottom: 5px solid #a0522d; /* Borde inferior tipo ladrillo */
+            background: #444; 
+            border-top: 5px solid #a0522d; 
+            border-bottom: 5px solid #a0522d; 
             flex-shrink: 0;
         }
         #reader-modal { 
-            position: absolute; 
-            top: 0;
-            left: 0;
             width: 100%; 
             height: 100%; 
         }
@@ -95,7 +91,6 @@
                 osc.connect(gainNode);
                 gainNode.connect(ctx.destination);
                 
-                // Simulación de sonidos clásicos
                 if (type === 'success') {
                     // Moneda/Hongo - Dos tonos ascendentes
                     osc.type = 'square';
@@ -132,7 +127,7 @@
             const [isSaving, setIsSaving] = useState(false);
             const scannerRef = useRef(null);
             const SCAN_INTERVAL_MS = 1500; 
-            const appContainerRef = useRef(null); // Para la animación
+            const appContainerRef = useRef(null); 
 
             // 1. Manejo de la cámara al abrir/cerrar
             useEffect(() => {
@@ -145,7 +140,8 @@
                             "reader-modal", 
                             { 
                                 fps: 5, 
-                                qrbox: { width: 280, height: 40 }, // Proporción ancha
+                                // Cuadro de escaneo 6:1 (300px ancho / 50px alto)
+                                qrbox: { width: 300, height: 50 }, 
                                 aspectRatio: 1.0, 
                                 videoConstraints: { facingMode: "environment" } 
                             },
@@ -194,7 +190,7 @@
 
                 if (scans.some(s => s.code === scannedCode)) {
                     setScanStatus({ message: `¡Ya tienes ese bloque! (${scannedCode})`, type: 'warning' });
-                    playMarioSound('warning'); // Tono de advertencia
+                    playMarioSound('warning'); 
                     return;
                 }
 
@@ -212,7 +208,6 @@
                                 paquete_indice: pkg.paqueteNum, 
                                 paquete_total: pkg.paquetesDePieza, 
                                 piezas_en_paquete: pkg.cantidad,
-                                // *** CAMBIO 1: Nombre del tejedor ***
                                 tejedor: "Joel" 
                             };
                             break;
@@ -222,11 +217,10 @@
 
                 if (!foundPackage) {
                     setScanStatus({ message: `¡K.O.! Bloque NO encontrado. (${scannedCode})`, type: 'error' });
-                    playMarioSound('error'); // Tono de error
+                    playMarioSound('error'); 
                     return;
                 }
                 
-                // Éxito: Moneda/Hongo
                 playMarioSound('success'); 
                 triggerMarioFlash();
                 setScans(prev => [...prev, foundPackage]);
@@ -284,7 +278,6 @@
 
             if (!isVisible) return null;
 
-            // Colores temáticos de Mario
             const statusClass = scanStatus.type === 'info' ? 'bg-blue-600' : (scanStatus.type === 'success' ? 'bg-green-600' : (scanStatus.type === 'warning' ? 'bg-yellow-600' : 'bg-red-600'));
 
             return (
@@ -296,7 +289,7 @@
                         <button onClick={onClose} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-bold flex items-center gap-1"><Icon name="castle" size={16}/> SALIR</button>
                     </div>
 
-                    {/* ZONA DE ESCANEO - Bloque de Ladrillos 6:1 */}
+                    {/* ZONA DE ESCANEO - Bloque de Ladrillos */}
                     <div className="camera-container-modal shrink-0">
                         <div id="reader-modal"></div>
                         {/* Indicador de estado */}
@@ -317,7 +310,6 @@
                                 scans.map(scan => (
                                     <div 
                                         key={scan.code} 
-                                        // Estilo de bloque recolectado (rojo con borde amarillo)
                                         className="flex justify-between items-center bg-red-900/80 p-2 rounded border border-yellow-700 border-l-4 border-yellow-500"
                                     >
                                         <div>
@@ -393,14 +385,12 @@
                     <div className="flex-grow flex flex-col items-center justify-center p-4 bg-red-900">
                         <button 
                             onClick={() => setShowScanner(true)} 
-                            // Botón de Inicio con apariencia de Hongo Rojo
                             className="bg-red-600 hover:bg-red-500 text-white px-8 py-6 rounded-full font-bold text-2xl shadow-2xl flex flex-col items-center gap-4 transition transform active:scale-95 border-8 border-white/50"
                         >
                             <Icon name="star" size={48} className="text-yellow-400 animate-pulse"/>
                             <span>¡VAMOS! INICIAR NIVEL</span>
                         </button>
                         {lastSaveCount > 0 && (
-                            // Indicador de Nivel completado
                             <div className="mt-6 bg-lime-700 text-white p-3 rounded-lg text-sm font-bold animate-pulse shadow-md">
                                 🌟 ¡PUNTAJE! {lastSaveCount} Bloques guardados.
                             </div>
