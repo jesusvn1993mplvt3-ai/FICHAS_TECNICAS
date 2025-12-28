@@ -20,32 +20,25 @@
             color: var(--text-main);
             margin: 0;
             padding: 15px;
-            overflow-y: auto; /* Permite scroll si hay muchos efectos */
+            overflow-y: auto;
         }
 
-        /* Scrollbar personalizada */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #111; }
         ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        h2 {
-            margin: 0 0 15px 0;
-            font-size: 1.2rem;
-            color: white;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
 
         .category-label {
             font-size: 0.8rem;
             color: var(--accent);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-top: 20px;
+            margin-top: 25px;
             margin-bottom: 10px;
             display: block;
             font-weight: bold;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
         }
 
         .effects-grid {
@@ -67,6 +60,7 @@
             text-align: center;
             position: relative;
             overflow: hidden;
+            height: 100%;
         }
 
         .effect-card:hover {
@@ -81,7 +75,6 @@
             box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
         }
 
-        /* Indicador de seleccionado */
         .effect-card.active::after {
             content: '✔';
             position: absolute;
@@ -108,59 +101,77 @@
         .desc {
             font-size: 0.75rem;
             color: var(--text-muted);
-            line-height: 1.2;
+            line-height: 1.3;
         }
-
     </style>
 </head>
 <body>
 
     <span class="category-label">Estándar</span>
     <div class="effects-grid">
-        
         <div class="effect-card active" onclick="selectEffect(this, 'fill')">
             <span class="icon">⬛</span>
             <span class="name">Sólido</span>
-            <span class="desc">Relleno completo clásico de pedreria.</span>
+            <span class="desc">Relleno completo clásico.</span>
         </div>
 
         <div class="effect-card" onclick="selectEffect(this, 'outline')">
             <span class="icon">⬜</span>
             <span class="name">Contorno</span>
-            <span class="desc">Solo bordes, ideal para textos grandes.</span>
+            <span class="desc">Solo bordes (Estilo Karl L.).</span>
+        </div>
+    </div>
+
+    <span class="category-label">Tendencias & Arte</span>
+    <div class="effects-grid">
+        <div class="effect-card" onclick="selectEffect(this, 'melting')">
+            <span class="icon">💧</span>
+            <span class="name">Melting</span>
+            <span class="desc">Lluvia o goteo vertical (Estilo Queen).</span>
+        </div>
+
+        <div class="effect-card" onclick="selectEffect(this, 'fading')">
+            <span class="icon">🌫️</span>
+            <span class="name">Fading</span>
+            <span class="desc">Degradado suave de densidad hacia abajo.</span>
+        </div>
+
+        <div class="effect-card" onclick="selectEffect(this, 'negative_box')">
+            <span class="icon">🔳</span>
+            <span class="name">Caja Negativa</span>
+            <span class="desc">Texto vacío sobre bloque de brillos.</span>
         </div>
     </div>
 
     <span class="category-label">Colección Versace / Lujo</span>
     <div class="effects-grid">
         
+        <div class="effect-card" onclick="selectEffect(this, 'shatter')">
+            <span class="icon">💥</span>
+            <span class="name">Shatter</span>
+            <span class="desc">Sólido que se desmorona/rompe abajo.</span>
+        </div>
+
         <div class="effect-card" onclick="selectEffect(this, 'versace_box')">
             <span class="icon">✨</span>
-            <span class="name">Caja Star</span>
-            <span class="desc">Letras vacías sobre fondo de estrellas dispersas.</span>
+            <span class="name">Star Box</span>
+            <span class="desc">Letras vacías en fondo de estrellas.</span>
+        </div>
+        
+        <div class="effect-card" onclick="selectEffect(this, 'script_shine')">
+            <span class="icon">💫</span>
+            <span class="name">Script Shine</span>
+            <span class="desc">Cursiva con aura y destellos grandes.</span>
         </div>
 
-        <div class="effect-card" onclick="selectEffect(this, 'versace_text')">
-            <span class="icon">☄️</span>
-            <span class="name">Texto Aura</span>
-            <span class="desc">Relleno sólido con explosión de partículas.</span>
-        </div>
-
-        </div>
+    </div>
 
     <script>
-        // Función principal que se comunica con el Index
         function selectEffect(element, effectCode) {
-            // 1. Quitar clase 'active' de todos
             document.querySelectorAll('.effect-card').forEach(card => {
                 card.classList.remove('active');
             });
-
-            // 2. Activar el clicado
             element.classList.add('active');
-
-            // 3. Enviar mensaje al padre (index.html)
-            // Esto es lo que conecta ambos archivos de forma segura
             window.parent.postMessage({
                 action: 'applyEffect',
                 effectName: effectCode
