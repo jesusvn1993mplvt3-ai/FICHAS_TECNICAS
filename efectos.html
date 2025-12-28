@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Efectos JMVN</title>
+    <style>
+        :root {
+            --accent: #ff0055;
+            --bg: #111;
+            --card-bg: #222;
+            --text-main: #eee;
+            --text-muted: #aaa;
+            --hover-bg: #2a1a1f;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            overflow-y: auto; /* Permite scroll si hay muchos efectos */
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            color: white;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .category-label {
+            font-size: 0.8rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            display: block;
+            font-weight: bold;
+        }
+
+        .effects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .effect-card {
+            background: var(--card-bg);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .effect-card:hover {
+            border-color: var(--accent);
+            background: var(--hover-bg);
+            transform: translateY(-2px);
+        }
+
+        .effect-card.active {
+            border-color: var(--accent);
+            background: rgba(255, 0, 85, 0.15);
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
+        }
+
+        /* Indicador de seleccionado */
+        .effect-card.active::after {
+            content: '✔';
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .name {
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.2;
+        }
+
+    </style>
+</head>
+<body>
+
+    <span class="category-label">Estándar</span>
+    <div class="effects-grid">
+        
+        <div class="effect-card active" onclick="selectEffect(this, 'fill')">
+            <span class="icon">⬛</span>
+            <span class="name">Sólido</span>
+            <span class="desc">Relleno completo clásico de pedreria.</span>
+        </div>
+
+        <div class="effect-card" onclick="selectEffect(this, 'outline')">
+            <span class="icon">⬜</span>
+            <span class="name">Contorno</span>
+            <span class="desc">Solo bordes, ideal para textos grandes.</span>
+        </div>
+    </div>
+
+    <span class="category-label">Colección Versace / Lujo</span>
+    <div class="effects-grid">
+        
+        <div class="effect-card" onclick="selectEffect(this, 'versace_box')">
+            <span class="icon">✨</span>
+            <span class="name">Caja Star</span>
+            <span class="desc">Letras vacías sobre fondo de estrellas dispersas.</span>
+        </div>
+
+        <div class="effect-card" onclick="selectEffect(this, 'versace_text')">
+            <span class="icon">☄️</span>
+            <span class="name">Texto Aura</span>
+            <span class="desc">Relleno sólido con explosión de partículas.</span>
+        </div>
+
+        </div>
+
+    <script>
+        // Función principal que se comunica con el Index
+        function selectEffect(element, effectCode) {
+            // 1. Quitar clase 'active' de todos
+            document.querySelectorAll('.effect-card').forEach(card => {
+                card.classList.remove('active');
+            });
+
+            // 2. Activar el clicado
+            element.classList.add('active');
+
+            // 3. Enviar mensaje al padre (index.html)
+            // Esto es lo que conecta ambos archivos de forma segura
+            window.parent.postMessage({
+                action: 'applyEffect',
+                effectName: effectCode
+            }, '*');
+        }
+    </script>
+</body>
+</html>
