@@ -2,331 +2,443 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#FF00FF">
-    <title>VIVA ROUSS & Monitor de Máquinas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner de Auditoría Avanzado - Cirineo Pro</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+
     <style>
-        /* --- VARIABLES GLOBALES --- */
-        :root {
-            --fucsia: #FF00FF;
-            --negro-mate: #121212;
-            --negro-puro: #000000;
+        body { 
+            background: radial-gradient(circle at top left, #0f172a, #020617); 
+            color: white; 
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
         }
-
-        /* --- ESTRUCTURA DE PANTALLA DIVIDIDA --- */
-        body {
-            background-color: var(--negro-puro);
-            color: #ffffff;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            height: 100vh;
-            display: grid;
-            grid-template-rows: 50% 50%;
-            overflow: hidden;
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); }
+        .txt-oswald { font-family: 'Oswald', sans-serif; }
+        
+        /* Estilos Específicos para el Reporte PDF "Lucido" */
+        .pdf-container {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #1a202c; /* Gris muy oscuro para texto principal */
+            background: white;
+            padding: 40px;
+            max-width: 850px; /* Ancho aproximado de carta */
+            margin: auto;
         }
-
-        .split-top {
-            background-image: radial-gradient(circle at top, #1a1a1a 0%, #000000 100%);
-            padding: 20px;
-            overflow-y: auto;
+        .pdf-header-bg {
+            background: linear-gradient(to right, #1e293b, #334155);
+            color: white;
+            padding: 25px;
+            border-radius: 12px 12px 0 0;
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            border-bottom: 3px solid var(--fucsia);
         }
-
-        .split-bottom {
-            background-color: var(--negro-mate);
-            overflow: hidden; 
-            position: relative;
+        .pdf-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            background: #f1f5f9; /* Slate 100 */
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
         }
-
-        /* --- ESTILOS VIVA ROUSS --- */
-        .vr-container { width: 100%; max-width: 450px; text-align: center; }
-        h1.vr-title {
-            font-family: 'Black Ops One', cursive;
-            font-size: clamp(2.5rem, 8vw, 3.5rem);
-            color: var(--fucsia);
-            margin: 0;
+        .metric-box {
+            text-align: center;
+        }
+        .metric-label {
+            font-size: 0.65rem;
+            font-weight: 800;
             text-transform: uppercase;
-            line-height: 1;
-            text-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
+            letter-spacing: 0.05em;
+            color: #64748b; /* Slate 500 */
+            margin-bottom: 5px;
         }
-        .vr-subtitle {
-            font-family: 'Dancing Script', cursive;
-            font-size: clamp(1.2rem, 5vw, 1.5rem);
-            color: #ffffff;
-            display: block;
-            text-align: right;
-            margin-top: -5px;
-            margin-bottom: 20px;
-            padding-right: 15px;
-            font-weight: 700;
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a; /* Slate 900 */
+        }
+        .pdf-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem; /* Texto compacto para más info */
+        }
+        .pdf-table thead th {
+            background: #0f172a;
+            color: white;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            padding: 12px 8px;
+            text-align: left;
+        }
+        .pdf-table tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .pdf-table tbody tr:nth-child(even) {
+            background-color: #f8fafc; /* Slate 50 */
+        }
+        .pdf-table td {
+            padding: 10px 8px;
+            vertical-align: middle;
+        }
+        .uuid-code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.65rem;
+            color: #475569;
+            word-break: break-all;
+        }
+        .validation-box {
+            height: 20px;
+            width: 20px;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
+            margin: auto;
+        }
+        .pdf-footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .signature-line {
+            width: 200px;
+            border-bottom: 2px solid #0f172a;
+            margin-bottom: 8px;
         }
 
-        .link-card {
-            background: var(--negro-mate); border: 1px solid #333; border-radius: 15px;
-            padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center;
-            text-decoration: none; color: white; transition: 0.3s;
-        }
-        .link-card:hover { border-color: var(--fucsia); transform: scale(1.02); background: #1a1a1a; }
-        /* Estilo para los iconos de Font Awesome/Remixicon */
-        .link-icon { font-size: 1.3rem; width: 35px; color: var(--fucsia); margin-right: 10px; text-align: center; }
-        /* Estilo para los iconos de GitHub (imágenes) */
-        .link-icon-img { width: 35px; height: 35px; margin-right: 10px; object-fit: contain; }
-        .link-text { font-size: 1rem; font-weight: 500; flex-grow: 1; text-align: left; }
-
-        #admin-panel { display: none; background: #0a0a0a; border: 1px dashed var(--fucsia); padding: 15px; border-radius: 15px; margin-top: 10px; width: 100%; max-width: 450px;}
-        .vr-input, .vr-select, .vr-save-btn { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: white; box-sizing: border-box; }
-        .vr-save-btn { background: var(--fucsia); border: none; font-family: 'Black Ops One'; font-size: 1rem; cursor: pointer; }
-
-        /* Estilos específicos para la previsualización del icono de GitHub */
-        #icono-preview {
-            display: none; /* Se muestra con JS */
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 10px;
-            padding: 10px;
-            border: 1px solid #333;
-            border-radius: 8px;
-            background-color: #1a1a1a;
-            height: 50px;
-        }
+        /* Ocultar scrollbar en el UI principal */
+        .no-scroll::-webkit-scrollbar { display: none; }
+        .no-scroll { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>
-
-    <div class="split-top">
-        <div class="vr-container">
-            <h1 class="vr-title">VIVA ROUSS</h1>
-            <span class="vr-subtitle">by Liliana</span>
-            <button id="install-btn"><i class="fas fa-download"></i> INSTALAR APP</button>
-            <div id="links-container"></div>
-            <button id="admin-toggle" onclick="toggleAdmin()">⚙️</button>
-            
-            <div id="admin-panel">
-                <h2 style="color:var(--fucsia); font-size: 1rem; margin-top:0;">NUEVOS VÍNCULOS</h2>
-                <input type="text" class="vr-input" id="titulo" placeholder="Nombre">
-                <input type="url" class="vr-input" id="url" placeholder="URL">
-                
-                <select id="icono" class="vr-select">
-                    <option value="fa-brands fa-instagram">📸 Instagram (CSS)</option>
-                    <option value="fa-brands fa-tiktok">🎵 TikTok (CSS)</option>
-                    <option value="fa-brands fa-whatsapp">💬 WhatsApp (CSS)</option>
-                    <option value="ri-store-2-line">🛍️ Tienda (CSS)</option>
-                    <option value="custom">🖼️ Custom/GitHub (IMAGEN)</option>
-                </select>
-
-                <input type="text" class="vr-input" id="icono-manual" placeholder="Ej: fa-solid fa-fire o archivo.png" style="display:none;">
-
-                <div id="icono-preview" style="display:none;">
-                    <span style="color: #666; font-size: 0.8rem;" id="preview-text">Previsualización aquí</span>
-                    <img id="preview-img" style="width: 30px; height: 30px; display:none; object-fit: contain;" alt="Icono">
-                </div>
-                
-                <button class="vr-save-btn" onclick="agregarEnlace()">GUARDAR</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="split-bottom">
-        <div id="root"></div>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-
-        // IMPORTANTE: REEMPLAZA ESTA URL CON LA RUTA CRUDA DE TU REPOSITORIO DE ICONOS
-        const GITHUB_ICONS_BASE_URL = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/icons/";
-
-        const firebaseConfig = { apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw", authDomain: "cirineo-cec21.firebaseapp.com", projectId: "cirineo-cec21", storageBucket: "cirineo-cec21.firebasestorage.app", messagingSenderId: "620210618284", appId: "1:620210618284:web:482bab9bf74650fff18409" };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // Elementos del formulario
-        const selectIcono = document.getElementById('icono');
-        const inputManual = document.getElementById('icono-manual');
-        const previewDiv = document.getElementById('icono-preview');
-        const previewImg = document.getElementById('preview-img');
-        const previewText = document.getElementById('preview-text');
-
-        // PWA Install
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('install-btn').style.display = 'inline-block'; });
-        document.getElementById('install-btn').addEventListener('click', async () => { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; document.getElementById('install-btn').style.display = 'none'; } });
-
-        // Función para renderizar el icono en la lista
-        function createLinkCard(data, docId) {
-            const card = document.createElement('div');
-            card.className = 'link-card';
-            
-            let iconElement;
-            if (data.icono.includes('.') || data.icono.startsWith('http')) { // Es una imagen/URL (GitHub)
-                iconElement = `<img src="${data.icono.startsWith('http') ? data.icono : GITHUB_ICONS_BASE_URL + data.icono}" class="link-icon-img" alt="Icono">`;
-            } else { // Es una clase CSS (Font Awesome, Remixicon, etc.)
-                iconElement = `<i class="${data.icono} link-icon"></i>`;
-            }
-
-            card.innerHTML = `
-                <a href="${data.url}" target="_blank" style="display:flex; align-items:center; width:100%; text-decoration:none; color:white;">
-                    ${iconElement}
-                    <span class="link-text">${data.titulo}</span>
-                </a>
-                <button class="delete-btn" onclick="eliminarLink('${docId}')"><i class="fas fa-trash"></i></button>
-            `;
-            return card;
-        }
-
-        // Lógica de Links y Detección de Iconos
-        onSnapshot(query(collection(db, "enlaces"), orderBy("creado", "asc")), (snapshot) => {
-            const container = document.getElementById('links-container'); container.innerHTML = "";
-            snapshot.forEach((docSnap) => {
-                container.appendChild(createLinkCard(docSnap.data(), docSnap.id));
-            });
-        });
-
-        // Lógica de aparición/desaparición del input manual y previsualización
-        selectIcono.addEventListener('change', () => {
-            if (selectIcono.value === 'custom') {
-                inputManual.style.display = 'block';
-                previewDiv.style.display = 'flex';
-                updatePreview();
-            } else {
-                inputManual.style.display = 'none';
-                previewDiv.style.display = 'none';
-            }
-        });
-
-        // Función para actualizar la previsualización de la imagen de GitHub
-        inputManual.addEventListener('input', updatePreview);
-        
-        function updatePreview() {
-            const value = inputManual.value.trim();
-            if (value && (value.includes('.') || value.startsWith('http'))) {
-                previewText.style.display = 'none';
-                previewImg.style.display = 'block';
-                previewImg.src = value.startsWith('http') ? value : GITHUB_ICONS_BASE_URL + value;
-            } else {
-                previewImg.style.display = 'none';
-                previewText.style.display = 'block';
-                previewText.textContent = value || 'Previsualización aquí';
-            }
-        }
-
-        window.agregarEnlace = async () => {
-            const titulo = document.getElementById('titulo').value; 
-            const url = document.getElementById('url').value; 
-            let icono = selectIcono.value; 
-            
-            if (icono === 'custom') {
-                icono = inputManual.value.trim();
-            }
-            
-            if (!titulo || !url || !icono) return;
-            
-            await addDoc(collection(db, "enlaces"), { titulo, url, icono, creado: serverTimestamp() });
-            
-            // Limpiar y resetear el formulario
-            document.getElementById('titulo').value = ""; 
-            document.getElementById('url').value = ""; 
-            selectIcono.value = "fa-brands fa-instagram"; 
-            inputManual.value = "";
-            inputManual.style.display = 'none';
-            previewDiv.style.display = 'none'; // Ocultar preview
-            
-            window.toggleAdmin();
-        };
-        
-        window.eliminarLink = async (id) => { if(confirm("¿Borrar?")) await deleteDoc(doc(db, "enlaces", id)); };
-        window.toggleAdmin = () => { const p = document.getElementById('admin-panel'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; };
-    </script>
+    <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
         
-        const firebaseConfig = { apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw", authDomain: "cirineo-cec21.firebaseapp.com", projectId: "cirineo-cec21", storageBucket: "cirineo-cec21.firebasestorage.app", messagingSenderId: "620210618284", appId: "1:620210618284:web:482bab9bf74650fff18409" };
+        const firebaseConfig = { apiKey: "AIzaSyCngQL1pdqghv2vbjkPycT1Xf0C46f7jYs", authDomain: "cirineo-cec21.firebaseapp.com", projectId: "cirineo-cec21", storageBucket: "cirineo-cec21.firebasestorage.app", messagingSenderId: "620210618284", appId: "1:620210618284:web:482bab9bf74650fff18409" };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        const MachineCard = ({ maquina, orders }) => {
-            const pendingPackages = useMemo(() => {
-                let pkgs = [];
-                orders.forEach(o => { const incomplete = o.progreso?.filter(p => !p.finished) || []; incomplete.forEach(p => { const pieceData = o.subPiecesData?.find(sp => sp.pieza === p.piezaNombre) || o; const timePerPiece = Number(pieceData.tiempo) || 0; pkgs.push({ ...p, parentOrderId: o.id, orderCode: o.codigo, partida: o.partida, timeTotal: (p.cantidad * timePerPiece) }); }); });
-                return pkgs; 
-            }, [orders]);
-            
-            const updateObs = async (pkgId, parentOrderId, newVal) => { 
-                const order = orders.find(o => o.id === parentOrderId); if(!order) return; 
-                const newProgreso = order.progreso.map(p => p.id === pkgId ? {...p, observaciones: newVal} : p); 
-                await db.collection('orders').doc(String(parentOrderId)).update({progreso: newProgreso}); 
-            };
-            
-            const totalMinutesLeft = pendingPackages.reduce((sum, p) => sum + p.timeTotal, 0);
-            const hoursLeft = (totalMinutesLeft / 60).toFixed(1);
-
-            return (
-                <div className="bg-[#1a1a1a] shadow-lg border border-[#333] rounded-lg p-2 flex flex-col h-full w-[300px] shrink-0">
-                    <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-2">
-                        <div>
-                            <div className="text-[10px] text-gray-400 font-bold uppercase">MÁQUINA</div>
-                            <div className="text-3xl font-black text-[#FF00FF]">#{maquina}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-xs font-bold text-green-400">{hoursLeft}h</div>
-                        </div>
-                    </div>
-                    <div className="space-y-1 overflow-y-auto flex-grow pr-1 custom-scroll" style={{maxHeight:'calc(100% - 60px)'}}>
-                        {pendingPackages.length === 0 && <div className="text-center text-gray-500 text-xs py-4">Libre</div>}
-                        {pendingPackages.map((p, i) => (
-                            <div key={i} className="bg-[#222] p-2 rounded flex gap-2 items-center text-xs border border-gray-700">
-                                <div className="font-black text-white text-lg w-6 text-right shrink-0">{p.cantidad}</div>
-                                <div className="w-20 shrink-0 overflow-hidden">
-                                    <div className="font-bold text-gray-300 truncate text-[10px]">{p.piezaNombre}</div>
-                                    <div className="text-[9px] text-[#FF00FF] font-black truncate">{p.partida}</div>
-                                </div>
-                                <div className="flex-grow pl-2 border-l border-gray-600">
-                                    <input className="bg-transparent w-full text-gray-300 placeholder-gray-600 outline-none" placeholder="Obs..." defaultValue={p.observaciones || ''} onBlur={(e) => updateObs(p.id, p.parentOrderId, e.target.value)}/>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
+        // Componente Icono (Lucide)
+        const Icon = ({ name, size=20, className="", color="currentColor" }) => {
+            const r = useRef(null);
+            useEffect(() => { 
+                if (r.current && lucide.icons[name]) {
+                    r.current.innerHTML = lucide.icons[name].toSvg({ width: size, height: size, color: color }); 
+                }
+            }, [name, size, color]);
+            return <span ref={r} className={`inline-flex items-center justify-center ${className}`}/>;
         };
 
         const App = () => {
-            const [orders, setOrders] = useState([]);
-            useEffect(() => { const u = db.collection('orders').onSnapshot(s => setOrders(s.docs.map(d=>d.data()))); return () => u(); }, []);
+            const [scannedKit, setScannedKit] = useState(null);
+            const [isScanning, setIsScanning] = useState(false);
+            const [loading, setLoading] = useState(false);
+            const [generationDate, setGenerationDate] = useState(null); // Fecha fija para el reporte
+            const scannerRef = useRef(null);
+            const pdfExportRef = useRef();
+            const barcodeRef = useRef(null); // Referencia para el código de barras del PDF
 
-            const machineGroups = useMemo(() => { 
-                const groups = {}; 
-                const activeOrders = orders.filter(o => o.status !== 'ARCHIVADO');
-                activeOrders.forEach(o => { if(!groups[o.maquina]) groups[o.maquina] = []; groups[o.maquina].push(o); }); 
-                return Object.keys(groups).sort((a,b) => parseInt(a)-parseInt(b)).map(k => ({ id: k, orders: groups[k] })); 
-            }, [orders]);
+            // Cálculo memoizado del total de piezas físicas para el reporte
+            const totalPiezasFisicas = useMemo(() => {
+                if (!scannedKit || !scannedKit.piezas) return 0;
+                return scannedKit.piezas.reduce((sum, p) => sum + parseInt(p.cantidad || 0), 0);
+            }, [scannedKit]);
+
+            // URL base de las imágenes
+            const getImageUrl = (modelo) => `https://raw.githubusercontent.com/sweaters-liliana/MAES2O26/refs/heads/main/IMAGENES/${modelo}.png`;
+
+            useEffect(() => {
+                // Generar código de barras cuando hay un kit escaneado y el ref existe
+                if (scannedKit && barcodeRef.current) {
+                    try {
+                        JsBarcode(barcodeRef.current, scannedKit.kitId, {
+                            format: "CODE128",
+                            lineColor: "#000",
+                            width: 1.5,
+                            height: 40,
+                            displayValue: false,
+                            margin: 0
+                        });
+                    } catch (e) { console.error("Error generando barcode:", e); }
+                }
+            }, [scannedKit]);
+
+            const startScanner = () => {
+                setIsScanning(true);
+                setScannedKit(null);
+                setGenerationDate(null);
+                setTimeout(() => {
+                    const html5QrCode = new Html5Qrcode("reader");
+                    scannerRef.current = html5QrCode;
+                    html5QrCode.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        (decodedText) => {
+                            lookupKit(decodedText);
+                            stopScanner();
+                        }
+                    );
+                }, 300);
+            };
+
+            const stopScanner = () => {
+                if (scannerRef.current) {
+                    scannerRef.current.stop().then(() => setIsScanning(false)).catch(err => console.log(err));
+                }
+            };
+
+            const lookupKit = async (kitId) => {
+                setLoading(true);
+                try {
+                    // Simulando que el escáner ahora trae "mucha más información" (los códigos únicos ya estaban en tu JSON original)
+                    const doc = await db.collection('kits_produccion').doc(kitId).get();
+                    if (doc.exists) {
+                        setScannedKit(doc.data());
+                        setGenerationDate(new Date()); // Fijar fecha de auditoría
+                    } else {
+                        alert("Código no encontrado en la base de datos administrativa.");
+                    }
+                } catch (e) { console.error(e); alert("Error de conexión."); }
+                setLoading(false);
+            };
+
+            const generatePDF = () => {
+                if (!scannedKit) return;
+                const opt = { 
+                    margin: [0.2, 0.2, 0.2, 0.2], // Márgenes más delgados para aprovechar espacio
+                    filename: `AUDITORIA_INTEGRAL_${scannedKit.kitId}_${new Date().toISOString().split('T')[0]}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { 
+                        scale: 2, // Mayor escala para mejor calidad
+                        useCORS: true, 
+                        logging: false,
+                        scrollY: 0,
+                        letterRendering: true
+                    },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+                // Asegurar que las imágenes estén cargadas antes de generar
+                const images = pdfExportRef.current.getElementsByTagName('img');
+                let loadedCount = 0;
+                const checkImages = () => {
+                    loadedCount++;
+                    if (loadedCount === images.length) {
+                         html2pdf().set(opt).from(pdfExportRef.current).save();
+                    }
+                };
+                if (images.length === 0) {
+                     html2pdf().set(opt).from(pdfExportRef.current).save();
+                } else {
+                     for (let img of images) {
+                        if (img.complete) checkImages();
+                        else { img.onload = checkImages; img.onerror = checkImages; }
+                    }
+                }
+            };
 
             return (
-                <div className="h-full bg-[#0a0a0a] p-2">
-                    <div className="flex gap-2 overflow-x-auto h-full items-stretch bottom-scroll pb-2">
-                        {machineGroups.map(g => <MachineCard key={g.id} maquina={g.id} orders={g.orders} />)}
-                        {machineGroups.length === 0 && <div className="text-gray-500 w-full flex items-center justify-center font-bold">No hay producción activa</div>}
+                <div className="max-w-3xl mx-auto p-4 flex flex-col min-h-screen no-scroll">
+                    {/* UI PRINCIPAL DEL ESCÁNER (Simplificada para enfocar en el PDF) */}
+                    <div className="flex justify-between items-center mb-6 glass p-4 rounded-2xl sticky top-4 z-10">
+                        <div>
+                            <h1 className="text-xl font-black tracking-tighter text-blue-400 flex items-center gap-2">
+                                <Icon name="shield-check" size={24} /> CIRINEO AUDIT PRO
+                            </h1>
+                        </div>
+                        <div>
+                            {!isScanning && (
+                                <button onClick={startScanner} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-900/30 text-sm">
+                                    <Icon name="qr-code" size={18} /> NUEVA AUDITORÍA
+                                </button>
+                            )}
+                        </div>
                     </div>
+
+                    {isScanning && (
+                        <div className="fixed inset-0 z-50 bg-[#020617] flex flex-col items-center justify-center p-4">
+                            <p className="text-white font-bold mb-4 animate-pulse">Escaneando Código de Kit...</p>
+                            <div id="reader" className="w-full max-w-sm rounded-3xl overflow-hidden border-4 border-blue-500 shadow-[0_0_60px_rgba(59,130,246,0.6)] bg-black"></div>
+                            <button onClick={stopScanner} className="mt-6 bg-red-600/80 hover:bg-red-600 px-6 py-2 rounded-full font-bold text-sm backdrop-blur-md transition-all">CANCELAR</button>
+                        </div>
+                    )}
+
+                    {loading && (
+                        <div className="flex-1 flex flex-col items-center justify-center space-y-4 animate-pulse opacity-60">
+                            <Icon name="database" size={40} className="text-blue-400 animate-bounce" />
+                            <p className="font-bold">Recuperando datos detallados del servidor...</p>
+                        </div>
+                    )}
+
+                    {scannedKit && !isScanning && (
+                        <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+                            <div className="glass p-8 rounded-[40px] text-center max-w-md w-full relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                                <Icon name="check-circle" size={60} className="text-green-400 mb-4 mx-auto shadow-lg rounded-full bg-green-400/10 p-2" />
+                                <h2 className="text-2xl font-black mb-2">¡Kit Identificado!</h2>
+                                <p className="text-slate-300 mb-6">Los datos avanzados del Kit <span className="font-bold text-white">{scannedKit.kitId}</span> están listos para el reporte.</p>
+                                
+                                <button onClick={generatePDF} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-2xl shadow-emerald-900/30 transition-all transform active:scale-95 text-lg">
+                                    <Icon name="file-spreadsheet" size={24} /> GENERAR REPORTE INTEGRAL
+                                </button>
+                                <p className="text-[10px] mt-4 opacity-50">Incluye foto, métricas y desglose con UUIDs.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {!scannedKit && !loading && !isScanning && (
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-500/50 border-4 border-dashed border-slate-800/50 rounded-[40px] m-4">
+                            <Icon name="scan-line" size={100} className="mb-6 opacity-30" />
+                            <p className="font-black text-xl text-center px-10 mb-2">Sistema Listo</p>
+                            <p className="font-medium text-center px-10 text-sm max-w-xs">Escanee un código QR de Kit para iniciar el proceso de auditoría detallada.</p>
+                        </div>
+                    )}
+
+                    {/* =====================================================================================
+                        CONTENIDO DEL PDF OCULTO ("LUCIDO" Y CON MÁS INFORMACIÓN)
+                       ===================================================================================== */}
+                    <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                        <div ref={pdfExportRef} className="pdf-container">
+                            
+                            {/* 1. HEADER PREMIUM CON FOTO */}
+                            <div className="pdf-header-bg">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <Icon name="shield-check" size={32} color="white" />
+                                        <h1 className="text-3xl font-black uppercase tracking-tight">Reporte de Auditoría Integral</h1>
+                                    </div>
+                                    <p className="text-sm font-bold opacity-80 uppercase tracking-widest mb-6 pl-11">Sistema Administrativo Cirineo Pro — Verificación de Producción</p>
+                                    
+                                    <div className="flex gap-10 pl-2">
+                                        <div>
+                                            <p className="text-[9px] font-bold uppercase opacity-60 mb-1">Kit ID de Rastreo (Folio)</p>
+                                            <p className="text-3xl font-black txt-oswald tracking-wide">{scannedKit?.kitId}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold uppercase opacity-60 mb-1">Fecha/Hora de Auditoría</p>
+                                            <p className="text-lg font-bold">{generationDate?.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* FOTO DEL MODELO DESTACADA */}
+                                <div className="w-48 h-48 bg-white p-2 rounded-lg shadow-lg overflow-hidden flex items-center justify-center border-4 border-white/20 relative">
+                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-[8px] font-bold px-2 py-1 rounded-full uppercase">Ref. Visual</div>
+                                    {scannedKit && (
+                                        <img 
+                                            src={getImageUrl(scannedKit.modelo)}
+                                            alt="Referencia del Modelo"
+                                            className="max-w-full max-h-full object-contain"
+                                            crossOrigin="anonymous"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-6">
+                                {/* 2. SECCIÓN DE MÉTRICAS Y DATOS CLAVE (GRID) */}
+                                <div className="pdf-metrics-grid">
+                                    <div className="metric-box border-r border-slate-200">
+                                        <p className="metric-label"><Icon name="shirt" size={12} className="mr-1 inline-block relative top-[-1px]"/> Modelo</p>
+                                        <p className="metric-value text-blue-900">{scannedKit?.modelo}</p>
+                                    </div>
+                                    <div className="metric-box border-r border-slate-200">
+                                        <p className="metric-label"><Icon name="user" size={12} className="mr-1 inline-block relative top-[-1px]"/> Cliente</p>
+                                        <p className="metric-value">{scannedKit?.cliente}</p>
+                                    </div>
+                                    <div className="metric-box border-r border-slate-200">
+                                        <p className="metric-label"><Icon name="folder-kanban" size={12} className="mr-1 inline-block relative top-[-1px]"/> Partida</p>
+                                        <p className="metric-value">{scannedKit?.partida}</p>
+                                    </div>
+                                    <div className="metric-box bg-blue-50/50 rounded-r-lg">
+                                        <p className="metric-label text-blue-800"><Icon name="layers" size={12} className="mr-1 inline-block relative top-[-1px]"/> Total Piezas Físicas</p>
+                                        <p className="metric-value text-blue-700 text-3xl">{totalPiezasFisicas}</p>
+                                    </div>
+                                </div>
+
+                                {/* 3. TABLA DETALLADA CON "MUCHA MÁS INFORMACIÓN" (UUIDs) */}
+                                <div className="mb-8">
+                                    <h2 className="text-lg font-black uppercase mb-3 flex justify-between items-end">
+                                        <span>Desglose de Contenido y Trazabilidad</span>
+                                        <span className="text-xs font-bold opacity-60">{scannedKit?.piezas.length} Paquetes Registrados</span>
+                                    </h2>
+                                    <table className="pdf-table">
+                                        <thead>
+                                            <tr>
+                                                <th className="rounded-tl-lg"># Pqt</th>
+                                                <th>Cant.</th>
+                                                <th>Tipo de Pieza / Componente</th>
+                                                <th>Máquina</th>
+                                                <th>Código Único de Rastreo (UUID)</th>
+                                                <th className="text-center rounded-tr-lg">Validación Física</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {scannedKit?.piezas.map((p, i) => (
+                                                <tr key={i}>
+                                                    <td className="font-bold text-slate-700 flex items-center gap-1">
+                                                        <Icon name="package" size={14} className="opacity-50" /> {p.paqueteNum}
+                                                    </td>
+                                                    <td className="font-black text-lg txt-oswald">{p.cantidad}</td>
+                                                    <td className="font-bold uppercase text-xs">{p.piezaNombre}</td>
+                                                    <td className="font-mono text-xs text-slate-500">{p.maquina || '---'}</td>
+                                                    {/* AQUÍ ESTÁ LA "MUCHA MÁS INFORMACIÓN": EL UUID */}
+                                                    <td className="uuid-code bg-slate-100/50 px-2 py-1 rounded border border-slate-200/50">{p.codigoUnico || 'N/A - Error de Trazabilidad'}</td>
+                                                    <td className="text-center">
+                                                        <div className="validation-box bg-white shadow-sm"></div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* 4. FOOTER PROFESIONAL CON FIRMAS Y CÓDIGO DE BARRAS */}
+                                <div className="pdf-footer">
+                                    <div>
+                                        <p className="text-[8px] font-bold uppercase opacity-50 mb-2">Este documento certifica la composición digital del Kit. La validación física es responsabilidad del auditor.</p>
+                                        {/* Código de Barras para re-escaneo rápido del reporte físico */}
+                                        <div className="mt-4 opacity-70 mix-blend-multiply">
+                                            <svg ref={barcodeRef}></svg>
+                                        </div>
+                                        <p className="text-[8px] font-mono mt-1 opacity-50">{scannedKit?.kitId}</p>
+                                    </div>
+                                    <div className="flex gap-12">
+                                        <div className="text-center">
+                                            <div className="signature-line"></div>
+                                            <p className="text-[9px] font-bold uppercase">Auditor Responsable</p>
+                                            <p className="text-[8px] font-medium opacity-60">Nombre y Firma</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="signature-line"></div>
+                                            <p className="text-[9px] font-bold uppercase">Supervisor de Planta</p>
+                                            <p className="text-[8px] font-medium opacity-60">Vo. Bo.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* FIN DEL PDF OCULTO */}
+
                 </div>
             );
         };
