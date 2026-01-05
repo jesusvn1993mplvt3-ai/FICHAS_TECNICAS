@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Balta Scan Pro v20</title>
+    <title>Balta Scan Pro v21</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -12,7 +12,6 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
@@ -20,57 +19,24 @@
 
     <style>
         body { margin: 0; background: #000; font-family: 'Roboto Condensed', sans-serif; color: white; height: 100vh; overflow: hidden; }
-        
-        .scanner-container {
-            position: relative;
-            width: 100%;
-            height: 35vh;
-            background: #000;
-            overflow: hidden;
-        }
-
-        /* Forzamos que el video ocupe todo el espacio */
+        .scanner-container { position: relative; width: 100%; height: 30vh; background: #000; overflow: hidden; }
         #reader { width: 100% !important; height: 100% !important; }
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
-        
-        /* Limpieza de UI de la librería */
-        #reader__scan_region { display: block !important; height: 100%; }
-        #reader img { display: none !important; }
-        #reader__dashboard_section_csr button { display: none !important; }
-
-        .scan-overlay {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 10; pointer-events: none;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .scan-box {
-            width: 70%; height: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 15px;
-            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5);
-        }
-
-        .results-container {
-            flex: 1; display: flex; flex-direction: column;
-            background: #f1f5f9; border-radius: 24px 24px 0 0;
-            margin-top: -20px; z-index: 20; position: relative; overflow: hidden;
-        }
-        
+        .results-container { flex: 1; display: flex; flex-direction: column; background: #f8fafc; border-radius: 24px 24px 0 0; margin-top: -20px; z-index: 20; position: relative; overflow: hidden; }
         .scroll-area { flex: 1; overflow-y: auto; padding: 15px; }
-
-        .fixed-footer {
-            background: white; padding: 15px; padding-bottom: 30px;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 30;
-        }
-
-        /* Estilos de Papeleta (Mini) */
-        .lbl-card { background: white; color: black; border: 1px solid #000; display: flex; aspect-ratio: 6/4; margin-bottom: 12px; }
+        .fixed-footer { background: white; padding: 15px; border-top: 1px solid #e2e8f0; }
+        
+        /* Estilos de Papeleta Clásica */
+        .lbl-card { background: white; color: black; border: 1px solid #000; display: flex; aspect-ratio: 6/4; margin-bottom: 12px; transform: scale(0.95); }
         .lbl-col-img { width: 25%; border-right: 2px solid #000; display: flex; align-items: center; justify-content: center; padding: 2px; }
         .lbl-col-data { width: 60%; border-right: 2px solid #000; display: flex; flex-direction: column; }
-        .lbl-col-bc { width: 15%; display: flex; align-items: center; justify-content: center; }
         .lbl-row { display: flex; border-bottom: 2px solid #000; width: 100%; }
-        .lbl-title { font-size: 8px; font-weight: bold; color: #444; }
-        .lbl-val { font-family: 'Oswald'; font-weight: bold; font-size: 18px; line-height: 1; color: #000; }
+        .lbl-title { font-size: 7px; font-weight: bold; color: #666; }
+        .lbl-val { font-family: 'Oswald'; font-weight: bold; font-size: 16px; line-height: 1; }
+        
+        /* Estilo Modo Entrada de Datos */
+        .entry-row { background: white; border-radius: 12px; padding: 12px; margin-bottom: 8px; border: 1px solid #e2e8f0; color: #1e293b; display: flex; align-items: center; gap: 10px; }
+        .input-maq { width: 80px; background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 8px; padding: 8px; text-align: center; font-weight: 900; font-size: 1.2rem; color: #1d4ed8; }
     </style>
 </head>
 <body>
@@ -79,7 +45,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Configuración Firebase (la misma)
         const firebaseConfig = { 
             apiKey: "AIzaSyCngQL1pdqghv2vbjkPycT1Xf0C46f7jYs", 
             authDomain: "cirineo-cec21.firebaseapp.com", 
@@ -91,80 +56,25 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        const VisualLabel = ({ data, imageSources, manualMachine }) => {
+        // Componente de Papeleta Gráfica
+        const VisualLabel = ({ data, imageSources }) => {
             const svgRef = useRef(null);
-            const modelo = data.modelo || 'S/N';
-            const barcodeValue = data.codigoUnico || '0000';
-            const maq = manualMachine || data.maquina || '0';
-
             const [imgSrc, setImgSrc] = useState(null);
-            const [currentIdx, setCurrentIdx] = useState(0);
-
             useEffect(() => {
-                if(imageSources?.[0]) setImgSrc(`${imageSources[0].url}/${modelo}.jpg`);
-            }, [modelo, imageSources]);
-
-            const handleError = () => {
-                if(currentIdx + 1 < imageSources.length) {
-                    setCurrentIdx(currentIdx + 1);
-                    setImgSrc(`${imageSources[currentIdx+1].url}/${modelo}.jpg`);
-                }
-            };
-
-            useEffect(() => {
-                if (svgRef.current && barcodeValue) {
-                    JsBarcode(svgRef.current, barcodeValue, { format: "CODE128", width: 2, height: 40, displayValue: false, margin: 0 });
-                }
-            }, [barcodeValue]);
+                if(imageSources?.[0]) setImgSrc(`${imageSources[0].url}/${data.modelo}.jpg`);
+                if (svgRef.current) JsBarcode(svgRef.current, data.codigoUnico, { width: 2, height: 40, displayValue: false, margin: 0 });
+            }, [data, imageSources]);
 
             return (
-                <div className="lbl-card shadow-lg">
-                    <div className="lbl-col-img">
-                        <img src={imgSrc} onError={handleError} className="w-full h-full object-contain" />
-                    </div>
+                <div className="lbl-card">
+                    <div className="lbl-col-img"><img src={imgSrc} className="w-full h-full object-contain" /></div>
                     <div className="lbl-col-data">
-                        <div className="lbl-row" style={{height:'25%'}}>
-                            <div className="p-1 flex-1 border-r-2 border-black">
-                                <div className="lbl-title">MODELO</div>
-                                <div className="lbl-val">{modelo}</div>
-                            </div>
-                            <div className="p-1 flex-1">
-                                <div className="lbl-title">CLIENTE</div>
-                                <div className="text-[10px] font-bold truncate">{data.cliente || '-'}</div>
-                            </div>
+                        <div className="lbl-row h-1/4"><div className="p-1"><div className="lbl-title">MODELO</div><div className="lbl-val">{data.modelo}</div></div></div>
+                        <div className="lbl-row h-1/4 bg-black text-white items-center justify-center font-bold">{ (data.piezaNombre||'').split(' ')[0] }</div>
+                        <div className="lbl-row h-1/4">
+                            <div className="flex-1 border-r border-black p-1"><div className="lbl-title">PAQ</div><div className="lbl-val">{data.displayPackageId}</div></div>
+                            <div className="flex-1 p-1 bg-gray-100 text-black"><div className="lbl-title">CANT</div><div className="lbl-val">{data.cantidad}</div></div>
                         </div>
-                        <div className="lbl-row bg-black text-white items-center justify-center" style={{height:'25%'}}>
-                            <span className="font-bold text-xl Oswald uppercase tracking-widest">{(data.piezaNombre||'').split(' ')[0]}</span>
-                        </div>
-                        <div className="lbl-row" style={{height:'30%'}}>
-                            <div className="flex-1 border-r-2 border-black p-1 text-center">
-                                <div className="lbl-title">PAQ</div>
-                                <div className="lbl-val">{data.displayPackageId}</div>
-                            </div>
-                            <div className="flex-1 border-r-2 border-black p-1 text-center bg-gray-200">
-                                <div className="lbl-title">CANT</div>
-                                <div className="lbl-val">{data.cantidad}</div>
-                            </div>
-                            <div className="flex-1 p-1 text-center bg-black text-white">
-                                <div className="lbl-title text-gray-400">MAQ</div>
-                                <div className="lbl-val text-white">{maq}</div>
-                            </div>
-                        </div>
-                        <div className="flex flex-1">
-                            <div className="flex-1 p-1 border-r-2 border-black">
-                                <div className="lbl-title">TALLA</div>
-                                <div className="font-bold text-xs">{data.talla}</div>
-                            </div>
-                            <div className="flex-1 p-1">
-                                <div className="lbl-title">PARTIDA</div>
-                                <div className="font-bold text-xs">{data.partida}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="lbl-col-bc">
-                         <div style={{transform: 'rotate(90deg)', width: '85px'}}>
-                            <svg ref={svgRef} className="w-full h-auto"></svg>
-                         </div>
                     </div>
                 </div>
             );
@@ -175,10 +85,10 @@
             const [orders, setOrders] = useState([]);
             const [imageSources, setImageSources] = useState([]);
             const [cameraActive, setCameraActive] = useState(false);
+            
             const [pending, setPending] = useState(null);
-            const [machine, setMachine] = useState('');
-            const [error, setError] = useState(null);
-            const scannerRef = useRef(null);
+            const [showGraphic, setShowGraphic] = useState(true); // Controla si se ve la papeleta o el input
+            const [machinesMap, setMachinesMap] = useState({}); // Guarda máquina por código único
 
             useEffect(() => {
                 db.collection('kits_produccion').onSnapshot(s => setKits(s.docs.map(d => d.data())));
@@ -186,55 +96,65 @@
                 db.collection('app_config').doc('imagenes').onSnapshot(d => setImageSources(d.data()?.sources || []));
             }, []);
 
-            const initCamera = () => {
+            const initScanner = () => {
                 setCameraActive(true);
-                setError(null);
                 setTimeout(() => {
-                    const html5QrCode = new Html5Qrcode("reader");
-                    scannerRef.current = html5QrCode;
-                    html5QrCode.start(
-                        { facingMode: "environment" },
-                        { fps: 20, qrbox: { width: 250, height: 150 } },
-                        (text) => handleScan(text.toUpperCase())
-                    ).catch(err => {
-                        console.error(err);
-                        setError("No se pudo acceder a la cámara. Revisa los permisos.");
+                    const scanner = new Html5Qrcode("reader");
+                    scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (text) => {
+                        const code = text.toUpperCase();
+                        let foundItems = [];
+                        let idKey = code;
+
+                        if (code.startsWith('K')) {
+                            const k = kits.find(x => x.kitId === code);
+                            if (k) foundItems = k.piezas.map(p => findInOrders(p.codigoUnico) || {...p, modelo: k.modelo, displayPackageId: '?'});
+                        } else {
+                            const item = findInOrders(code);
+                            if (item) foundItems = [item];
+                        }
+
+                        if (foundItems.length > 0) {
+                            setPending({ id: idKey, items: foundItems });
+                            setShowGraphic(true);
+                            // Timer de 3 segundos para cambiar a modo texto
+                            setTimeout(() => setShowGraphic(false), 3000);
+                        }
                     });
                 }, 500);
-            };
-
-            const handleScan = (code) => {
-                if (pending) return;
-                
-                if (code.startsWith('K')) {
-                    const k = kits.find(x => x.kitId === code);
-                    if (k) {
-                        const items = k.piezas.map(p => findInOrders(p.codigoUnico) || {...p, modelo: k.modelo, displayPackageId: '?'});
-                        setPending({ id: code, items, type: 'KIT' });
-                    }
-                } else {
-                    const item = findInOrders(code);
-                    if (item) setPending({ id: code, items: [item], type: 'INDV' });
-                }
             };
 
             const findInOrders = (code) => {
                 for (let o of orders) {
                     const p = o.progreso?.find(x => x.codigoUnico === code);
-                    if (p) return { ...p, modelo: o.codigo, cliente: o.cliente, partida: o.partida, orderId: o.id, displayPackageId: `${p.paqueteNum}/${p.paquetesDePieza}` };
+                    if (p) return { ...p, modelo: o.codigo, orderId: o.id, displayPackageId: `${p.paqueteNum}/${p.paquetesDePieza}` };
                 }
                 return null;
             };
 
-            const save = async () => {
-                if (!machine) return alert("Escribe la máquina");
+            const updateMachine = (uniqueCode, val) => {
+                setMachinesMap(prev => ({ ...prev, [uniqueCode]: val }));
+            };
+
+            const copyToAll = () => {
+                const firstVal = machinesMap[pending.items[0].codigoUnico];
+                if (!firstVal) return;
+                const newMap = {};
+                pending.items.forEach(it => newMap[it.codigoUnico] = firstVal);
+                setMachinesMap(newMap);
+            };
+
+            const confirmFinal = async () => {
+                // Validar que todos tengan máquina
+                const incomplete = pending.items.some(it => !machinesMap[it.codigoUnico]);
+                if (incomplete) return alert("Faltan máquinas por asignar");
+
                 const batch = db.batch();
-                pending.items.forEach(p => {
+                pending.items.forEach(it => {
                     batch.set(db.collection('registro_produccion').doc(), {
-                        code: p.codigoUnico, modelo: p.modelo, orderId: p.orderId||'?', 
-                        partida: p.partida||'?', tejedor: "Balta Scan",
+                        code: it.codigoUnico, modelo: it.modelo,
                         fecha: firebase.firestore.FieldValue.serverTimestamp(),
-                        maquina: machine, finished: false
+                        maquina: machinesMap[it.codigoUnico],
+                        tejedor: "Balta Scan"
                     });
                 });
                 await batch.commit();
@@ -244,52 +164,64 @@
             return (
                 <div className="h-full flex flex-col bg-black">
                     {!cameraActive ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
-                            <div className="w-32 h-32 bg-blue-600 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-blue-500/50">
-                                <Lucide name="camera" size={48} color="white" />
-                            </div>
-                            <h1 className="text-3xl font-black mb-4">BALTA SCAN v20</h1>
-                            <button onClick={initCamera} className="w-full bg-blue-600 py-6 rounded-2xl font-bold text-xl">EMPEZAR A ESCANEAR</button>
+                        <div className="flex-1 flex flex-col items-center justify-center p-10">
+                            <button onClick={initScanner} className="w-full bg-blue-600 py-8 rounded-3xl font-black text-2xl shadow-2xl">ENCENDER ESCÁNER</button>
                         </div>
                     ) : (
-                        <div className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex-1 flex flex-col">
                             <div className="scanner-container">
                                 <div id="reader"></div>
-                                {!pending && <div className="scan-overlay"><div className="scan-box"></div></div>}
-                                {error && (
-                                    <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 text-center z-50">
-                                        <p className="text-red-400 font-bold mb-4">{error}</p>
-                                        <button onClick={() => window.location.reload()} className="bg-white text-black px-6 py-2 rounded-lg font-bold">REINTENTAR</button>
-                                    </div>
-                                )}
+                                {!pending && <div className="absolute inset-0 flex items-center justify-center border-4 border-blue-500/30 m-10 rounded-3xl"></div>}
                             </div>
 
-                            <div className="results-container shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+                            <div className="results-container">
                                 {!pending ? (
                                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                                        <div className="animate-bounce mb-2"><Lucide name="scan" size={40} /></div>
-                                        <p className="font-bold text-sm">ESPERANDO CÓDIGO...</p>
+                                        <p className="font-bold animate-pulse">LISTO PARA ESCANEAR</p>
                                     </div>
                                 ) : (
-                                    <div className="flex-1 flex flex-col overflow-hidden">
+                                    <div className="flex flex-col h-full">
                                         <div className="p-4 bg-white border-b flex justify-between items-center">
-                                            <span className="font-black text-xl text-blue-900">{pending.id}</span>
-                                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-black">{pending.items.length} PAQUETES</span>
+                                            <span className="font-black text-blue-900">{pending.id}</span>
+                                            {showGraphic && <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded animate-pulse font-bold">REVISANDO PAPELETA...</span>}
                                         </div>
+
                                         <div className="scroll-area">
-                                            {pending.items.map((it, i) => (
-                                                <VisualLabel key={i} data={it} imageSources={imageSources} manualMachine={machine} />
-                                            ))}
+                                            {showGraphic ? (
+                                                /* MODO 1: VISUAL (3 segundos) */
+                                                pending.items.map((it, i) => <VisualLabel key={i} data={it} imageSources={imageSources} />)
+                                            ) : (
+                                                /* MODO 2: ENTRADA DE DATOS (Después de 3 segundos) */
+                                                <div className="animate-in fade-in duration-500">
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <h3 className="font-black text-slate-700">ASIGNAR MÁQUINAS</h3>
+                                                        {pending.items.length > 1 && (
+                                                            <button onClick={copyToAll} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold">Igualar Todas ↑</button>
+                                                        )}
+                                                    </div>
+                                                    {pending.items.map((it, i) => (
+                                                        <div key={i} className="entry-row shadow-sm">
+                                                            <div className="flex-1">
+                                                                <div className="text-xs font-black text-blue-600">{it.codigoUnico}</div>
+                                                                <div className="font-bold text-sm text-slate-700">{it.modelo} - {(it.piezaNombre||'').split(' ')[0]}</div>
+                                                            </div>
+                                                            <input 
+                                                                type="number" 
+                                                                placeholder="#"
+                                                                className="input-maq"
+                                                                value={machinesMap[it.codigoUnico] || ''}
+                                                                onChange={(e) => updateMachine(it.codigoUnico, e.target.value)}
+                                                                autoFocus={i === 0}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="fixed-footer">
-                                            <div className="mb-4">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Número de Máquina:</label>
-                                                <input type="number" value={machine} onChange={e=>setMachine(e.target.value)} autoFocus className="w-full bg-slate-100 p-4 rounded-xl text-center text-3xl font-black text-blue-600 border-2 border-blue-200 outline-none focus:border-blue-600" placeholder="0" />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <button onClick={()=>window.location.reload()} className="bg-slate-200 py-5 rounded-2xl font-bold text-slate-500">DESCARTAR</button>
-                                                <button onClick={save} className="bg-blue-600 py-5 rounded-2xl font-bold text-white shadow-xl">CONFIRMAR</button>
-                                            </div>
+
+                                        <div className="fixed-footer grid grid-cols-2 gap-4">
+                                            <button onClick={() => window.location.reload()} className="bg-slate-100 py-4 rounded-2xl font-bold text-slate-400 uppercase text-xs">Descartar</button>
+                                            <button onClick={confirmFinal} className="bg-green-600 py-4 rounded-2xl font-black text-white shadow-lg shadow-green-200">FINALIZAR</button>
                                         </div>
                                     </div>
                                 )}
@@ -298,16 +230,6 @@
                     )}
                 </div>
             );
-        };
-
-        const Lucide = ({ name, size = 24, color = "currentColor" }) => {
-            const ref = useRef(null);
-            useEffect(() => {
-                if (ref.current && lucide.icons[name]) {
-                    ref.current.innerHTML = lucide.icons[name].toSvg({ width: size, height: size, color });
-                }
-            }, [name, size, color]);
-            return <span ref={ref} className="inline-block"></span>;
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
