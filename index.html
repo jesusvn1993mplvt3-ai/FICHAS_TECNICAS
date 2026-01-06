@@ -12,6 +12,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
@@ -20,25 +22,24 @@
     <style>
         /* --- ESTÉTICA FEMENINA & CLEAN --- */
         body { 
-            background: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 100%); /* Rose-50 to Rose-100 */
-            color: #4a044e; /* Slate-900 cambiado por un morado muy oscuro */
+            background: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 100%); 
+            color: #4a044e; 
             font-family: 'Quicksand', sans-serif;
-            overflow: hidden; /* Evitar scroll en el body, manejarlo internamente */
+            overflow: hidden; 
         }
 
         h1, h2, h3 { font-family: 'Playfair Display', serif; }
 
-        /* Scrollbars bonitos */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.5); }
-        ::-webkit-scrollbar-thumb { background: #fbcfe8; border-radius: 10px; } /* Pink-200 */
-        ::-webkit-scrollbar-thumb:hover { background: #f472b6; } /* Pink-400 */
+        ::-webkit-scrollbar-thumb { background: #fbcfe8; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #f472b6; }
 
         .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, 0.85); /* Un poco más opaco para leer mejor */
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.05);
         }
 
         .card-enter { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -51,6 +52,10 @@
         .bar:nth-child(3) { animation-delay: 0.2s; }
         .bar:nth-child(4) { animation-delay: 0.3s; }
         @keyframes equalizer { 0% { height: 20%; } 50% { height: 100%; } 100% { height: 20%; } }
+
+        /* Ocultar scrollbar en lista de radios pero permitir scroll */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
     </style>
 </head>
@@ -72,14 +77,16 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // --- LISTA DE RADIO POR DEFECTO (SI NO HAY DB) ---
+        // --- LISTA DE RADIO ACTUALIZADA (Enlaces directos MP3/HLS) ---
         const DEFAULT_STATIONS = [
-            { name: "La Mejor FM", url: "https://stream.zeno.fm/0k6nd542zrhvv" }, // Ejemplo genérico
-            { name: "Exa FM", url: "https://26663.live.streamtheworld.com/XHEXA_FMAAC.aac" },
-            { name: "Los 40 Principales", url: "https://21233.live.streamtheworld.com/LOS40_MEXICO_SC" },
-            { name: "Amor FM", url: "https://24493.live.streamtheworld.com/XHSH_FMAAC.aac" },
-            { name: "Mix 106.5", url: "https://24493.live.streamtheworld.com/XHDFM_FMAAC.aac" },
-            { name: "Radio Disney", url: "https://24253.live.streamtheworld.com/XHPOP_FMAAC.aac" }
+            { name: "La Mejor FM", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XHOC_FMAAC.aac" },
+            { name: "Exa FM", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XHEXA_FMAAC.aac" }, 
+            { name: "Los 40", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/LOS40_MEXICO_SC" },
+            { name: "Radio Alegría", url: "https://stream.zeno.fm/0k6nd542zrhvv" }, // Stream genérico regional
+            { name: "La KeBuena", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XEQ_FMAAC.aac" },
+            { name: "Stereo Joya", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XEJP_FMAAC.aac" },
+            { name: "Mix 106.5", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/XHDFM_FMAAC.aac" },
+            { name: "Bandamax", url: "https://playerservices.streamtheworld.com/api/livestream-redirect/TELESIT_BANDAMAXAAC.aac" }
         ];
 
         const Icon = ({ name, size = 18, className="" }) => {
@@ -91,70 +98,124 @@
             return <span ref={r} className={`inline-flex items-center justify-center ${className}`}/>;
         };
 
-        // --- COMPONENTE DE RADIO ---
+        // --- COMPONENTE DE RADIO MEJORADO (CON HLS.JS) ---
         const RadioPlayer = () => {
             const [stations, setStations] = useState(DEFAULT_STATIONS);
             const [currentStation, setCurrentStation] = useState(null);
             const [isPlaying, setIsPlaying] = useState(false);
-            const audioRef = useRef(new Audio());
+            const [errorMsg, setErrorMsg] = useState(null);
+            
+            const audioRef = useRef(null);
+            const hlsRef = useRef(null);
 
-            // Cargar estaciones extra de DB si existen
+            // Cargar estaciones extra de DB
             useEffect(() => {
                 const unsub = db.collection('radio_stations').onSnapshot(snap => {
                     if(!snap.empty) {
                         const dbStations = snap.docs.map(d => d.data());
-                        setStations([...DEFAULT_STATIONS, ...dbStations]);
+                        // Filtramos duplicados por URL
+                        const merged = [...DEFAULT_STATIONS, ...dbStations].filter((v,i,a)=>a.findIndex(t=>(t.url===v.url))===i);
+                        setStations(merged);
                     }
                 });
                 return () => unsub();
             }, []);
 
+            const playStream = (url) => {
+                const audio = audioRef.current;
+                
+                // Si existe una instancia previa de HLS, la destruimos
+                if (hlsRef.current) {
+                    hlsRef.current.destroy();
+                    hlsRef.current = null;
+                }
+
+                // Caso 1: Soporte nativo de HLS (Safari / iOS)
+                if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+                    audio.src = url;
+                    audio.play().catch(e => handlePlayError(e));
+                }
+                // Caso 2: Usar Hls.js (Chrome, Firefox, Android)
+                else if (Hls.isSupported() && (url.includes('.m3u8') || !url.includes('.mp3'))) {
+                    const hls = new Hls();
+                    hlsRef.current = hls;
+                    hls.loadSource(url);
+                    hls.attachMedia(audio);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        audio.play().catch(e => handlePlayError(e));
+                    });
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                             handlePlayError({message: "Error de stream HLS"});
+                        }
+                    });
+                }
+                // Caso 3: MP3 Directo estándar
+                else {
+                    audio.src = url;
+                    audio.play().catch(e => handlePlayError(e));
+                }
+            };
+
+            const handlePlayError = (e) => {
+                console.error(e);
+                setIsPlaying(false);
+                setErrorMsg("No se puede reproducir esta estación.");
+                setTimeout(() => setErrorMsg(null), 3000);
+            };
+
             const togglePlay = (station) => {
+                setErrorMsg(null);
+                
                 if (currentStation?.name === station.name && isPlaying) {
                     audioRef.current.pause();
                     setIsPlaying(false);
                 } else {
-                    if(currentStation?.name !== station.name) {
-                        audioRef.current.src = station.url;
-                        setCurrentStation(station);
-                    }
-                    audioRef.current.play().catch(e => alert("Error al reproducir: " + e.message));
+                    setCurrentStation(station);
                     setIsPlaying(true);
+                    playStream(station.url);
                 }
             };
 
             return (
-                <div className="fixed bottom-0 left-0 right-0 h-16 glass-panel border-t border-pink-200 z-50 flex items-center justify-between px-6 shadow-up">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-lg shadow-pink-300/50">
-                            {isPlaying ? <div className="equalizer"><div className="bar"></div><div className="bar"></div><div className="bar"></div></div> : <Icon name="music" />}
+                <div className="fixed bottom-0 left-0 right-0 h-20 glass-panel z-50 flex items-center justify-between px-4 pb-2 shadow-up transition-all">
+                    <audio ref={audioRef} style={{display:'none'}} />
+                    
+                    <div className="flex items-center gap-3 w-1/3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all ${isPlaying ? 'bg-pink-500 shadow-pink-300/50 scale-105' : 'bg-gray-300'}`}>
+                            {isPlaying ? 
+                                <div className="equalizer"><div className="bar"></div><div className="bar"></div><div className="bar"></div></div> 
+                                : <Icon name="music" size={20} />
+                            }
                         </div>
-                        <div className="hidden md:block">
-                            <div className="text-xs font-bold text-pink-400 uppercase tracking-widest">Radio Viry</div>
-                            <div className="text-sm font-bold text-pink-900">{currentStation ? currentStation.name : "Selecciona una estación"}</div>
+                        <div className="hidden sm:block overflow-hidden">
+                            <div className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">EN VIVO</div>
+                            <div className="text-sm font-bold text-pink-900 truncate max-w-[150px]">
+                                {errorMsg ? <span className="text-red-500">{errorMsg}</span> : (currentStation ? currentStation.name : "Apagado")}
+                            </div>
                         </div>
                     </div>
                     
-                    <div className="flex gap-2 overflow-x-auto max-w-2xl scrollbar-hide">
+                    <div className="flex gap-2 overflow-x-auto w-full scrollbar-hide px-2">
                         {stations.map((st, idx) => (
                             <button key={idx} onClick={() => togglePlay(st)} 
-                                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all
+                                className={`flex-shrink-0 whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all border
                                 ${currentStation?.name === st.name && isPlaying 
-                                    ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-md transform scale-105' 
-                                    : 'bg-white text-pink-800 border border-pink-100 hover:bg-pink-50'}`}>
+                                    ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white border-pink-500 shadow-md' 
+                                    : 'bg-white/50 text-pink-800 border-pink-100 hover:bg-pink-50'}`}>
                                 {st.name}
                             </button>
                         ))}
                     </div>
 
-                    <div className="text-pink-300">
-                        <Icon name="volume-2" />
+                    <div className="w-10 text-pink-300 flex justify-end">
+                         {isPlaying && <Icon name="volume-2" />}
                     </div>
                 </div>
             );
         };
 
-        // --- TARJETA DE ESCANEO (PENDIENTE) ---
+        // --- TARJETA DE ESCANEO ---
         const ScanCard = ({ scan, onApprove, onDelete, processing }) => {
             return (
                 <div className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-pink-100 card-enter relative group hover:shadow-md transition-all">
@@ -203,7 +264,7 @@
         // --- MODAL HISTORIAL ---
         const HistoryModal = ({ machineId, archives, onClose }) => {
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
                         <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-pink-100 flex justify-between items-center">
                             <div>
@@ -252,7 +313,6 @@
 
             const processScan = async (code) => {
                 setLoadingInfo(true);
-                // Intentar buscar información extra del Kit si existe
                 let details = {
                     codigo: code,
                     modelo: 'N/A',
@@ -263,16 +323,11 @@
                 };
 
                 try {
-                    // Lógica para intentar adivinar si es un codigo de KIT o de PIEZA
-                    // Asumimos que el codigo escaneado es el ID del documento en kits_produccion o un codigo interno
-                    // Buscamos coincidencia exacta primero
                     const kitDoc = await db.collection('kits_produccion').doc(code).get();
                     if (kitDoc.exists) {
                         const data = kitDoc.data();
                         details = { ...details, modelo: data.modelo, partida: data.partida, maquina: 'Kit Completo', piezas: data.piezas };
                     } else {
-                        // Si no es un kit directo, buscamos si es parte de un kit (esto requeriría buscar en arrays, costoso, simplificamos)
-                        // Simplemente mostramos el código y dejamos que Viry confirme
                         details.modelo = "Modelo por confirmar";
                     }
                 } catch (e) { console.error(e); }
@@ -282,13 +337,12 @@
             };
 
             const confirmRegistration = () => {
-                // Aquí es donde Viry actúa como operadora
                 onScanSuccess(scannedData);
                 onClose();
             };
 
             return (
-                <div className="fixed inset-0 z-[60] bg-slate-900/95 flex flex-col items-center justify-center p-4">
+                <div className="fixed inset-0 z-[70] bg-slate-900/95 flex flex-col items-center justify-center p-4">
                     {!scannedData ? (
                         <div className="w-full max-w-md bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-500 relative">
                              <div id="reader-viry" className="w-full h-80"></div>
@@ -362,7 +416,7 @@
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pb-20 px-1">
+                    <div className="flex-1 overflow-y-auto pb-24 px-1">
                         {pendingScans.length === 0 ? (
                             <div className="h-40 flex flex-col items-center justify-center text-gray-300 border-2 border-dashed border-gray-200 rounded-2xl mt-4">
                                 <Icon name="check" size={24} className="mb-2 opacity-50"/>
@@ -410,13 +464,11 @@
                 return () => { unsub1(); unsub2(); unsub3(); };
             }, []);
 
-            // Agrupar por Máquina
             const machineGroups = useMemo(() => {
                 const groups = {};
                 const noMachine = [];
                 scannedItems.forEach(scan => {
                     const order = orders.find(o => String(o.id) === String(scan.orderId)) || {};
-                    // Si no hay orden asociada pero el escaneo tiene info, intentamos usarla, si no "Sin Máquina"
                     const mq = order.maquina || scan.maquina || '??';
                     const isArchived = approvedIds.has(scan.id);
 
@@ -429,23 +481,18 @@
                     }
                 });
                 
-                // Ordenar claves numéricamente
                 const sortedKeys = Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b));
                 return { mapped: sortedKeys.map(k => ({ id: k, ...groups[k] })), unmapped: noMachine };
             }, [scannedItems, orders, approvedIds]);
 
-            // Función: Viry Registra un nuevo escaneo
             const handleViryScanRegister = async (data) => {
                 try {
-                    // Buscar si este codigo ya existe en una orden activa para enlazarlo
                     let orderId = null;
                     let paqueteIndice = 1;
                     
-                    // Intentamos encontrar la orden por el modelo
                     const potentialOrder = orders.find(o => o.codigo === data.modelo);
                     if(potentialOrder) {
                         orderId = potentialOrder.id;
-                        // Logica simple para el indice del paquete: contamos cuantos scans lleva esa orden + 1
                         const count = scannedItems.filter(s => s.orderId === orderId).length;
                         paqueteIndice = count + 1;
                     }
@@ -454,10 +501,10 @@
                         codigo_paquete: data.codigo,
                         modelo: data.modelo,
                         partida: data.partida || 'General',
-                        tejedor: 'Viry', // NOMBRE FIJO
+                        tejedor: 'Viry', 
                         fecha: new Date().toISOString(),
                         fecha_scan: new Date().toISOString(),
-                        orderId: orderId, // Puede ser null si no encuentra match
+                        orderId: orderId, 
                         paquete_indice: paqueteIndice,
                         paquete_total: potentialOrder ? potentialOrder.totalPedido : '?',
                         maquina: data.maquina !== 'Kit Completo' ? data.maquina : (potentialOrder?.maquina || '??')
@@ -470,20 +517,14 @@
                 }
             };
 
-            // Función: Aprobar (Consolidar)
             const handleApprove = async (scanItem) => {
                 setProcessingId(scanItem.id);
                 try {
-                    // Si tiene orden asociada, actualizamos progreso
                     if (scanItem.orderId) {
                         const orderRef = db.collection('orders').doc(String(scanItem.orderId));
                         const orderSnap = await orderRef.get();
                         if (orderSnap.exists) {
                             const orderData = orderSnap.data();
-                            // Actualizar array de progreso
-                            // Nota: Si el escaneo de Viry no tiene un paqueteNum especifico exacto, 
-                            // aqui simplemente marcamos el siguiente disponible o buscamos por ID si fuera posible.
-                            // Para simplificar: Buscamos el primer paquete NO terminado y lo marcamos.
                             let updatedProgreso = [...(orderData.progreso || [])];
                             let foundIndex = updatedProgreso.findIndex(p => !p.finished);
                             
@@ -500,7 +541,6 @@
                         }
                     }
 
-                    // Mover a aprobados
                     await db.collection('registros_aprobados').doc(scanItem.id).set({ 
                         ...scanItem, 
                         fecha_aprobacion: new Date().toISOString(), 
@@ -515,7 +555,6 @@
                 setProcessingId(null);
             };
 
-            // Función: Eliminar
             const handleDelete = async (scanItem) => {
                 if(!confirm("¿Borrar este registro?")) return;
                 setProcessingId(scanItem.id);
@@ -550,7 +589,7 @@
                     </div>
 
                     {/* MAIN BOARD */}
-                    <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-24">
+                    <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-20">
                         <div className="flex h-full pb-4">
                             {machineGroups.mapped.map(group => (
                                 <MachineColumn 
@@ -599,7 +638,7 @@
                         />
                     )}
 
-                    {/* RADIO PLAYER FOOTER */}
+                    {/* RADIO PLAYER FOOTER - CORREGIDO */}
                     <RadioPlayer />
                 </div>
             );
