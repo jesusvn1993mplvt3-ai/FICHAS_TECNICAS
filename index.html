@@ -2,237 +2,605 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Balta Scan Pro v22</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Producción - Viry Edition</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
 
     <style>
-        body { margin: 0; background: #000; font-family: 'Roboto Condensed', sans-serif; color: white; height: 100vh; overflow: hidden; }
-        .scanner-container { position: relative; width: 100%; height: 30vh; background: #000; overflow: hidden; }
-        #reader { width: 100% !important; height: 100% !important; }
-        #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
-        .results-container { flex: 1; display: flex; flex-direction: column; background: #f8fafc; border-radius: 24px 24px 0 0; margin-top: -20px; z-index: 20; position: relative; overflow: hidden; }
-        .scroll-area { flex: 1; overflow-y: auto; padding: 15px; }
-        .fixed-footer { background: white; padding: 15px; border-top: 1px solid #e2e8f0; }
-        
-        .lbl-card { background: white; color: black; border: 1px solid #000; display: flex; aspect-ratio: 6/4; margin-bottom: 12px; }
-        .lbl-col-img { width: 25%; border-right: 2px solid #000; display: flex; align-items: center; justify-content: center; padding: 2px; }
-        .lbl-col-data { width: 60%; border-right: 2px solid #000; display: flex; flex-direction: column; }
-        .lbl-title { font-size: 7px; font-weight: bold; color: #666; }
-        .lbl-val { font-family: 'Oswald'; font-weight: bold; font-size: 16px; line-height: 1; }
-        
-        .entry-row { background: white; border-radius: 12px; padding: 12px; margin-bottom: 8px; border: 1px solid #e2e8f0; color: #1e293b; display: flex; align-items: center; gap: 10px; }
-        .input-maq { width: 85px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 8px; text-align: center; font-weight: 900; font-size: 1.3rem; color: #1d4ed8; outline: none; }
+        /* --- ESTÉTICA FEMENINA & CLEAN --- */
+        body { 
+            background: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 100%); /* Rose-50 to Rose-100 */
+            color: #4a044e; /* Slate-900 cambiado por un morado muy oscuro */
+            font-family: 'Quicksand', sans-serif;
+            overflow: hidden; /* Evitar scroll en el body, manejarlo internamente */
+        }
+
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+        /* Scrollbars bonitos */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.5); }
+        ::-webkit-scrollbar-thumb { background: #fbcfe8; border-radius: 10px; } /* Pink-200 */
+        ::-webkit-scrollbar-thumb:hover { background: #f472b6; } /* Pink-400 */
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-enter { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Radio Player Animation */
+        .equalizer { display: flex; gap: 2px; align-items: flex-end; height: 15px; }
+        .bar { width: 3px; background-color: #ec4899; animation: equalizer 1s infinite ease-in-out; }
+        .bar:nth-child(2) { animation-delay: 0.1s; }
+        .bar:nth-child(3) { animation-delay: 0.2s; }
+        .bar:nth-child(4) { animation-delay: 0.3s; }
+        @keyframes equalizer { 0% { height: 20%; } 50% { height: 100%; } 100% { height: 20%; } }
+
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        const firebaseConfig = { 
-            apiKey: "AIzaSyCngQL1pdqghv2vbjkPycT1Xf0C46f7jYs", 
-            authDomain: "cirineo-cec21.firebaseapp.com", 
-            projectId: "cirineo-cec21", 
-            storageBucket: "cirineo-cec21.firebasestorage.app", 
-            messagingSenderId: "620210618284", 
-            appId: "1:620210618284:web:482bab9bf74650fff18409" 
+        const firebaseConfig = {
+            apiKey: "AIzaSyCngQL1pdqghv2vbjkPycT1Xf0C46f7jYs",
+            authDomain: "cirineo-cec21.firebaseapp.com",
+            projectId: "cirineo-cec21",
+            storageBucket: "cirineo-cec21.firebasestorage.app",
+            messagingSenderId: "620210618284",
+            appId: "1:620210618284:web:482bab9bf74650fff18409"
         };
+
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        const VisualLabel = ({ data, imageSources }) => {
-            const svgRef = useRef(null);
-            const [imgSrc, setImgSrc] = useState(null);
+        // --- LISTA DE RADIO POR DEFECTO (SI NO HAY DB) ---
+        const DEFAULT_STATIONS = [
+            { name: "La Mejor FM", url: "https://stream.zeno.fm/0k6nd542zrhvv" }, // Ejemplo genérico
+            { name: "Exa FM", url: "https://26663.live.streamtheworld.com/XHEXA_FMAAC.aac" },
+            { name: "Los 40 Principales", url: "https://21233.live.streamtheworld.com/LOS40_MEXICO_SC" },
+            { name: "Amor FM", url: "https://24493.live.streamtheworld.com/XHSH_FMAAC.aac" },
+            { name: "Mix 106.5", url: "https://24493.live.streamtheworld.com/XHDFM_FMAAC.aac" },
+            { name: "Radio Disney", url: "https://24253.live.streamtheworld.com/XHPOP_FMAAC.aac" }
+        ];
+
+        const Icon = ({ name, size = 18, className="" }) => {
+            const r = useRef(null);
+            useEffect(() => { 
+                if (r.current && lucide.icons[name]) 
+                    r.current.innerHTML = lucide.icons[name].toSvg({ width: size, height: size }); 
+            }, [name, size]);
+            return <span ref={r} className={`inline-flex items-center justify-center ${className}`}/>;
+        };
+
+        // --- COMPONENTE DE RADIO ---
+        const RadioPlayer = () => {
+            const [stations, setStations] = useState(DEFAULT_STATIONS);
+            const [currentStation, setCurrentStation] = useState(null);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const audioRef = useRef(new Audio());
+
+            // Cargar estaciones extra de DB si existen
             useEffect(() => {
-                if(imageSources?.[0]) setImgSrc(`${imageSources[0].url}/${data.modelo}.jpg`);
-                if (svgRef.current) JsBarcode(svgRef.current, data.codigoUnico, { width: 2, height: 40, displayValue: false, margin: 0 });
-            }, [data, imageSources]);
+                const unsub = db.collection('radio_stations').onSnapshot(snap => {
+                    if(!snap.empty) {
+                        const dbStations = snap.docs.map(d => d.data());
+                        setStations([...DEFAULT_STATIONS, ...dbStations]);
+                    }
+                });
+                return () => unsub();
+            }, []);
+
+            const togglePlay = (station) => {
+                if (currentStation?.name === station.name && isPlaying) {
+                    audioRef.current.pause();
+                    setIsPlaying(false);
+                } else {
+                    if(currentStation?.name !== station.name) {
+                        audioRef.current.src = station.url;
+                        setCurrentStation(station);
+                    }
+                    audioRef.current.play().catch(e => alert("Error al reproducir: " + e.message));
+                    setIsPlaying(true);
+                }
+            };
 
             return (
-                <div className="lbl-card scale-95 origin-top">
-                    <div className="lbl-col-img"><img src={imgSrc} className="w-full h-full object-contain" /></div>
-                    <div className="lbl-col-data">
-                        <div className="lbl-row h-1/4"><div className="p-1"><div className="lbl-title">MODELO</div><div className="lbl-val">{data.modelo}</div></div></div>
-                        <div className="lbl-row h-1/4 bg-black text-white items-center justify-center font-bold">{(data.piezaNombre||'').split(' ')[0]}</div>
-                        <div className="lbl-row h-1/4">
-                            <div className="flex-1 border-r border-black p-1"><div className="lbl-title">PAQ</div><div className="lbl-val">{data.displayPackageId}</div></div>
-                            <div className="flex-1 p-1 bg-gray-100"><div className="lbl-title">CANT</div><div className="lbl-val">{data.cantidad}</div></div>
+                <div className="fixed bottom-0 left-0 right-0 h-16 glass-panel border-t border-pink-200 z-50 flex items-center justify-between px-6 shadow-up">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-lg shadow-pink-300/50">
+                            {isPlaying ? <div className="equalizer"><div className="bar"></div><div className="bar"></div><div className="bar"></div></div> : <Icon name="music" />}
+                        </div>
+                        <div className="hidden md:block">
+                            <div className="text-xs font-bold text-pink-400 uppercase tracking-widest">Radio Viry</div>
+                            <div className="text-sm font-bold text-pink-900">{currentStation ? currentStation.name : "Selecciona una estación"}</div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-2 overflow-x-auto max-w-2xl scrollbar-hide">
+                        {stations.map((st, idx) => (
+                            <button key={idx} onClick={() => togglePlay(st)} 
+                                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all
+                                ${currentStation?.name === st.name && isPlaying 
+                                    ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-md transform scale-105' 
+                                    : 'bg-white text-pink-800 border border-pink-100 hover:bg-pink-50'}`}>
+                                {st.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="text-pink-300">
+                        <Icon name="volume-2" />
+                    </div>
+                </div>
+            );
+        };
+
+        // --- TARJETA DE ESCANEO (PENDIENTE) ---
+        const ScanCard = ({ scan, onApprove, onDelete, processing }) => {
+            return (
+                <div className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-pink-100 card-enter relative group hover:shadow-md transition-all">
+                    {processing === scan.id && <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center rounded-xl"><Icon name="loader-2" className="animate-spin text-pink-500" size={24}/></div>}
+                    
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="bg-pink-50 text-pink-600 text-[10px] font-bold px-2 py-1 rounded-full border border-pink-100 tracking-wider">
+                            {scan.codigo_paquete}
+                        </span>
+                        <span className="text-[10px] text-gray-400 flex items-center gap-1 font-mono">
+                            <Icon name="clock" size={10}/> {scan.fecha_scan?.substring(11,16) || '--:--'}
+                        </span>
+                    </div>
+
+                    <div className="mb-2">
+                        <div className="font-playfair text-lg font-bold text-gray-800 leading-none">{scan.modelo}</div>
+                        <div className="text-xs text-pink-400 font-bold mt-1">{scan.partida}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <div>
+                            <div className="text-[9px] uppercase text-gray-400 font-bold">Tejedora</div>
+                            <div className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                                <Icon name="user" size={10} className="text-pink-400"/>
+                                {scan.tejedor || 'Desconocido'}
+                            </div>
+                        </div>
+                        <div className="text-right">
+                             <div className="text-[9px] uppercase text-gray-400 font-bold">Paquete</div>
+                             <div className="text-sm font-black text-gray-700">{scan.paquete_indice}</div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => onDelete(scan)} className="py-2 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 text-xs font-bold flex justify-center items-center gap-1">
+                            <Icon name="trash" size={14}/> Borrar
+                        </button>
+                        <button onClick={() => onApprove(scan)} className="py-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 text-xs font-bold flex justify-center items-center gap-1">
+                            <Icon name="check" size={14}/> Aprobar
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MODAL HISTORIAL ---
+        const HistoryModal = ({ machineId, archives, onClose }) => {
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-in fade-in">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                        <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-pink-100 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-gray-700">Historial Máquina {machineId}</h3>
+                                <p className="text-xs text-pink-400">{archives.length} paquetes completados</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-pink-100 rounded-full text-gray-500"><Icon name="x"/></button>
+                        </div>
+                        <div className="p-4 overflow-y-auto space-y-2 flex-1">
+                            {archives.length === 0 && <div className="text-center text-gray-400 text-sm py-10">Sin historial aún.</div>}
+                            {archives.map(item => (
+                                <div key={item.id} className="flex justify-between items-center p-3 rounded-xl bg-gray-50 border border-gray-100 opacity-75">
+                                    <div>
+                                        <div className="text-xs font-bold text-gray-700">{item.modelo}</div>
+                                        <div className="text-[10px] text-gray-500">Paquete #{item.paquete_indice} • {item.tejedor}</div>
+                                    </div>
+                                    <Icon name="check-circle" size={16} className="text-green-300"/>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
             );
         };
 
-        const App = () => {
-            const [kits, setKits] = useState([]);
-            const [orders, setOrders] = useState([]);
-            const [imageSources, setImageSources] = useState([]);
-            const [cameraActive, setCameraActive] = useState(false);
-            const [pending, setPending] = useState(null);
-            const [showGraphic, setShowGraphic] = useState(true);
-            const [machinesMap, setMachinesMap] = useState({});
-
+        // --- MODAL ESCÁNER "VIRY" ---
+        const ScannerModal = ({ onClose, onScanSuccess, db }) => {
+            const [scannedData, setScannedData] = useState(null);
+            const [loadingInfo, setLoadingInfo] = useState(false);
+            
             useEffect(() => {
-                db.collection('kits_produccion').onSnapshot(s => setKits(s.docs.map(d => d.data())));
-                db.collection('orders').where('status', '!=', 'ARCHIVADO').onSnapshot(s => setOrders(s.docs.map(d => ({id: d.id, ...d.data()}))));
-                db.collection('app_config').doc('imagenes').onSnapshot(d => setImageSources(d.data()?.sources || []));
+                const html5QrCode = new Html5Qrcode("reader-viry");
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                
+                html5QrCode.start({ facingMode: "environment" }, config, 
+                    (decodedText) => {
+                        html5QrCode.stop().then(() => {
+                            processScan(decodedText);
+                        });
+                    },
+                    (errorMessage) => { /* ignore */ }
+                ).catch(err => console.log(err));
+
+                return () => { try { html5QrCode.stop(); } catch(e){} };
             }, []);
 
-            const initScanner = () => {
-                setCameraActive(true);
-                setTimeout(() => {
-                    const scanner = new Html5Qrcode("reader");
-                    scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (text) => {
-                        const code = text.toUpperCase();
-                        let foundItems = [];
-                        if (code.startsWith('K')) {
-                            const k = kits.find(x => x.kitId === code);
-                            if (k) foundItems = k.piezas.map(p => findInOrders(p.codigoUnico) || {...p, modelo: k.modelo, displayPackageId: '?'});
-                        } else {
-                            const item = findInOrders(code);
-                            if (item) foundItems = [item];
-                        }
-
-                        if (foundItems.length > 0) {
-                            setPending({ id: code, items: foundItems });
-                            setShowGraphic(true);
-                            setTimeout(() => setShowGraphic(false), 3000);
-                        }
-                    });
-                }, 500);
-            };
-
-            const findInOrders = (code) => {
-                for (let o of orders) {
-                    const p = o.progreso?.find(x => x.codigoUnico === code);
-                    if (p) return { ...p, modelo: o.codigo, orderId: o.id, cliente: o.cliente, partida: o.partida, displayPackageId: `${p.paqueteNum}/${p.paquetesDePieza}` };
-                }
-                return null;
-            };
-
-            const confirmFinal = async () => {
-                const incomplete = pending.items.some(it => !machinesMap[it.codigoUnico]);
-                if (incomplete) return alert("Asigna máquina a todos los paquetes");
-
-                const batch = db.batch();
-                
-                for (const it of pending.items) {
-                    const maqElegida = machinesMap[it.codigoUnico];
-                    
-                    // 1. REGISTRO DE PRODUCCIÓN (Para el historial y el consolidador)
-                    const regRef = db.collection('registro_produccion').doc();
-                    batch.set(regRef, {
-                        code: it.codigoUnico,
-                        modelo: it.modelo,
-                        cliente: it.cliente || '',
-                        partida: it.partida || '',
-                        paquete_indice: it.paqueteNum || 0,
-                        maquina: maqElegida, // Campo raíz para el consolidador
-                        fecha: firebase.firestore.FieldValue.serverTimestamp(),
-                        tejedor: "Balta Scan",
-                        finished: false
-                    });
-
-                    // 2. ACTUALIZAR LA ORDEN ORIGINAL (Para que el consolidador no lo mande a "Sin asignar")
-                    if (it.orderId) {
-                        const orderRef = db.collection('orders').doc(it.orderId);
-                        const orderData = orders.find(o => o.id === it.orderId);
-                        if (orderData && orderData.progreso) {
-                            const nuevoProgreso = orderData.progreso.map(p => {
-                                if (p.codigoUnico === it.codigoUnico) {
-                                    return { ...p, maquina: maqElegida }; // Actualizamos la máquina en la orden
-                                }
-                                return p;
-                            });
-                            batch.update(orderRef, { progreso: nuevoProgreso });
-                        }
-                    }
-                }
+            const processScan = async (code) => {
+                setLoadingInfo(true);
+                // Intentar buscar información extra del Kit si existe
+                let details = {
+                    codigo: code,
+                    modelo: 'N/A',
+                    partida: 'N/A',
+                    maquina: '?',
+                    cantidad: '?',
+                    piezas: []
+                };
 
                 try {
-                    await batch.commit();
-                    window.location.reload();
+                    // Lógica para intentar adivinar si es un codigo de KIT o de PIEZA
+                    // Asumimos que el codigo escaneado es el ID del documento en kits_produccion o un codigo interno
+                    // Buscamos coincidencia exacta primero
+                    const kitDoc = await db.collection('kits_produccion').doc(code).get();
+                    if (kitDoc.exists) {
+                        const data = kitDoc.data();
+                        details = { ...details, modelo: data.modelo, partida: data.partida, maquina: 'Kit Completo', piezas: data.piezas };
+                    } else {
+                        // Si no es un kit directo, buscamos si es parte de un kit (esto requeriría buscar en arrays, costoso, simplificamos)
+                        // Simplemente mostramos el código y dejamos que Viry confirme
+                        details.modelo = "Modelo por confirmar";
+                    }
+                } catch (e) { console.error(e); }
+
+                setScannedData(details);
+                setLoadingInfo(false);
+            };
+
+            const confirmRegistration = () => {
+                // Aquí es donde Viry actúa como operadora
+                onScanSuccess(scannedData);
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 z-[60] bg-slate-900/95 flex flex-col items-center justify-center p-4">
+                    {!scannedData ? (
+                        <div className="w-full max-w-md bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-500 relative">
+                             <div id="reader-viry" className="w-full h-80"></div>
+                             <div className="absolute top-4 left-0 right-0 text-center text-white font-bold drop-shadow-md">Escaneando...</div>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300">
+                            <div className="text-center mb-4">
+                                <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                                    <Icon name="check" size={32} />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800">Confirmar Producción</h3>
+                                <p className="text-sm text-gray-500">¿Registrar este paquete?</p>
+                            </div>
+                            
+                            <div className="bg-slate-50 p-4 rounded-xl mb-6 border border-slate-100">
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-400">Código:</span>
+                                    <span className="font-mono font-bold">{scannedData.codigo}</span>
+                                </div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-400">Modelo:</span>
+                                    <span className="font-bold">{scannedData.modelo}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">Operador:</span>
+                                    <span className="font-bold text-pink-500">Viry</span>
+                                </div>
+                            </div>
+
+                            <button onClick={confirmRegistration} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 transform active:scale-95 transition-all mb-3">
+                                CONFIRMAR REGISTRO
+                            </button>
+                            <button onClick={onClose} className="w-full text-gray-400 font-bold text-sm hover:text-gray-600">
+                                Cancelar
+                            </button>
+                        </div>
+                    )}
+
+                    {!scannedData && (
+                        <button onClick={onClose} className="mt-8 bg-white/10 text-white px-6 py-2 rounded-full backdrop-blur hover:bg-white/20 transition">
+                            Cerrar Escáner
+                        </button>
+                    )}
+                </div>
+            );
+        };
+
+        // --- COLUMNA DE MÁQUINA ---
+        const MachineColumn = ({ machineId, pendingScans, archivedScans, onApprove, onDelete, processingId }) => {
+            const [showHistory, setShowHistory] = useState(false);
+
+            return (
+                <div className="min-w-[300px] max-w-[300px] flex flex-col h-full mx-2">
+                    <div className="glass-panel rounded-2xl p-4 mb-3 flex justify-between items-center sticky top-0 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-playfair font-bold text-xl shadow-lg">
+                                {machineId}
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Máquina</span>
+                                <span className="text-sm font-bold text-purple-900">{pendingScans.length} pendientes</span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowHistory(true)}
+                            className="w-8 h-8 rounded-full bg-white border border-pink-100 flex items-center justify-center text-pink-400 hover:bg-pink-50 hover:text-pink-600 transition shadow-sm"
+                            title="Ver aprobados"
+                        >
+                            <Icon name="history" size={16}/>
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto pb-20 px-1">
+                        {pendingScans.length === 0 ? (
+                            <div className="h-40 flex flex-col items-center justify-center text-gray-300 border-2 border-dashed border-gray-200 rounded-2xl mt-4">
+                                <Icon name="check" size={24} className="mb-2 opacity-50"/>
+                                <span className="text-xs font-bold">Todo limpio</span>
+                            </div>
+                        ) : (
+                            pendingScans.map(scan => (
+                                <ScanCard 
+                                    key={scan.id} 
+                                    scan={scan} 
+                                    onApprove={onApprove} 
+                                    onDelete={onDelete} 
+                                    processing={processingId} 
+                                />
+                            ))
+                        )}
+                    </div>
+
+                    {showHistory && (
+                        <HistoryModal 
+                            machineId={machineId} 
+                            archives={archivedScans} 
+                            onClose={() => setShowHistory(false)} 
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        // --- APP PRINCIPAL ---
+        const App = () => {
+            const [scannedItems, setScannedItems] = useState([]);
+            const [orders, setOrders] = useState([]);
+            const [approvedIds, setApprovedIds] = useState(new Set());
+            const [processingId, setProcessingId] = useState(null);
+            
+            const [isScanning, setIsScanning] = useState(false);
+            const [notification, setNotification] = useState(null);
+
+            // Cargar Datos
+            useEffect(() => {
+                const unsub1 = db.collection('orders').where('status', '!=', 'ARCHIVADO').onSnapshot(snap => setOrders(snap.docs.map(d => ({...d.data(), id: d.id}))));
+                const unsub2 = db.collection('registro_produccion').orderBy('fecha', 'desc').onSnapshot(snap => setScannedItems(snap.docs.map(d => ({...d.data(), id: d.id}))));
+                const unsub3 = db.collection('registros_aprobados').onSnapshot(snap => setApprovedIds(new Set(snap.docs.map(d => d.id))));
+                return () => { unsub1(); unsub2(); unsub3(); };
+            }, []);
+
+            // Agrupar por Máquina
+            const machineGroups = useMemo(() => {
+                const groups = {};
+                const noMachine = [];
+                scannedItems.forEach(scan => {
+                    const order = orders.find(o => String(o.id) === String(scan.orderId)) || {};
+                    // Si no hay orden asociada pero el escaneo tiene info, intentamos usarla, si no "Sin Máquina"
+                    const mq = order.maquina || scan.maquina || '??';
+                    const isArchived = approvedIds.has(scan.id);
+
+                    if (mq !== '??') {
+                        if (!groups[mq]) groups[mq] = { pending: [], archived: [] };
+                        if (isArchived) groups[mq].archived.push({ ...scan, orderRef: order });
+                        else groups[mq].pending.push({ ...scan, orderRef: order });
+                    } else {
+                        if (!isArchived) noMachine.push({ ...scan, orderRef: null });
+                    }
+                });
+                
+                // Ordenar claves numéricamente
+                const sortedKeys = Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b));
+                return { mapped: sortedKeys.map(k => ({ id: k, ...groups[k] })), unmapped: noMachine };
+            }, [scannedItems, orders, approvedIds]);
+
+            // Función: Viry Registra un nuevo escaneo
+            const handleViryScanRegister = async (data) => {
+                try {
+                    // Buscar si este codigo ya existe en una orden activa para enlazarlo
+                    let orderId = null;
+                    let paqueteIndice = 1;
+                    
+                    // Intentamos encontrar la orden por el modelo
+                    const potentialOrder = orders.find(o => o.codigo === data.modelo);
+                    if(potentialOrder) {
+                        orderId = potentialOrder.id;
+                        // Logica simple para el indice del paquete: contamos cuantos scans lleva esa orden + 1
+                        const count = scannedItems.filter(s => s.orderId === orderId).length;
+                        paqueteIndice = count + 1;
+                    }
+
+                    await db.collection('registro_produccion').add({
+                        codigo_paquete: data.codigo,
+                        modelo: data.modelo,
+                        partida: data.partida || 'General',
+                        tejedor: 'Viry', // NOMBRE FIJO
+                        fecha: new Date().toISOString(),
+                        fecha_scan: new Date().toISOString(),
+                        orderId: orderId, // Puede ser null si no encuentra match
+                        paquete_indice: paqueteIndice,
+                        paquete_total: potentialOrder ? potentialOrder.totalPedido : '?',
+                        maquina: data.maquina !== 'Kit Completo' ? data.maquina : (potentialOrder?.maquina || '??')
+                    });
+
+                    setNotification({type: 'success', text: `Paquete registrado por Viry exitosamente.`});
+                    setTimeout(() => setNotification(null), 4000);
                 } catch (e) {
                     alert("Error al guardar: " + e.message);
                 }
             };
 
+            // Función: Aprobar (Consolidar)
+            const handleApprove = async (scanItem) => {
+                setProcessingId(scanItem.id);
+                try {
+                    // Si tiene orden asociada, actualizamos progreso
+                    if (scanItem.orderId) {
+                        const orderRef = db.collection('orders').doc(String(scanItem.orderId));
+                        const orderSnap = await orderRef.get();
+                        if (orderSnap.exists) {
+                            const orderData = orderSnap.data();
+                            // Actualizar array de progreso
+                            // Nota: Si el escaneo de Viry no tiene un paqueteNum especifico exacto, 
+                            // aqui simplemente marcamos el siguiente disponible o buscamos por ID si fuera posible.
+                            // Para simplificar: Buscamos el primer paquete NO terminado y lo marcamos.
+                            let updatedProgreso = [...(orderData.progreso || [])];
+                            let foundIndex = updatedProgreso.findIndex(p => !p.finished);
+                            
+                            if (foundIndex !== -1) {
+                                updatedProgreso[foundIndex] = { 
+                                    ...updatedProgreso[foundIndex], 
+                                    finished: true, 
+                                    tejedor: scanItem.tejedor, 
+                                    fecha: new Date().toISOString().split('T')[0],
+                                    approvedBy: 'Consolidador'
+                                };
+                                await orderRef.update({ progreso: updatedProgreso });
+                            }
+                        }
+                    }
+
+                    // Mover a aprobados
+                    await db.collection('registros_aprobados').doc(scanItem.id).set({ 
+                        ...scanItem, 
+                        fecha_aprobacion: new Date().toISOString(), 
+                        aprobado_por: 'Admin' 
+                    });
+
+                    setNotification({type: 'success', text: "Paquete aprobado y archivado."});
+                    setTimeout(() => setNotification(null), 2000);
+                } catch (error) {
+                    alert("Error: " + error.message);
+                }
+                setProcessingId(null);
+            };
+
+            // Función: Eliminar
+            const handleDelete = async (scanItem) => {
+                if(!confirm("¿Borrar este registro?")) return;
+                setProcessingId(scanItem.id);
+                try {
+                    await db.collection('registro_produccion').doc(scanItem.id).delete();
+                } catch(e) { alert(e.message); }
+                setProcessingId(null);
+            };
+
             return (
-                <div className="h-full flex flex-col bg-black">
-                    {!cameraActive ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-10">
-                            <button onClick={initScanner} className="w-full bg-blue-600 py-8 rounded-3xl font-black text-2xl shadow-2xl">ACTIVAR CÁMARA</button>
+                <div className="flex flex-col h-screen w-full relative">
+                    {/* HEADER */}
+                    <div className="px-6 py-4 flex justify-between items-center z-20">
+                        <div>
+                            <h1 className="text-2xl font-bold text-pink-900 drop-shadow-sm">Consolidación <span className="text-pink-400 italic">Pro</span></h1>
+                            <p className="text-xs font-bold text-gray-500 tracking-widest uppercase">Panel de Control & Viry Scanner</p>
                         </div>
-                    ) : (
-                        <div className="flex-1 flex flex-col">
-                            <div className="scanner-container">
-                                <div id="reader"></div>
-                                {!pending && <div className="absolute inset-0 flex items-center justify-center border-4 border-blue-500/20 m-12 rounded-3xl pointer-events-none"></div>}
-                            </div>
+                        <div className="flex gap-4 items-center">
+                            {notification && (
+                                <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-xs font-bold animate-pulse shadow-sm border border-green-200">
+                                    {notification.text}
+                                </div>
+                            )}
+                            <button 
+                                onClick={() => setIsScanning(true)}
+                                className="bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white px-6 py-3 rounded-full font-bold shadow-lg shadow-pink-200 flex items-center gap-2 transition-transform hover:scale-105"
+                            >
+                                <Icon name="scan-line" />
+                                <span className="hidden md:inline">ESCANEAR (VIRY)</span>
+                            </button>
+                        </div>
+                    </div>
 
-                            <div className="results-container shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
-                                {!pending ? (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                                        <p className="font-bold tracking-widest animate-pulse">ESPERANDO ESCANEO</p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col h-full">
-                                        <div className="p-4 bg-white border-b flex justify-between items-center">
-                                            <span className="font-black text-blue-900 text-lg uppercase">{pending.id}</span>
-                                            {showGraphic ? (
-                                                <span className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded-lg font-bold">VERIFICANDO...</span>
-                                            ) : (
-                                                <button onClick={() => setMachinesMap(Object.fromEntries(pending.items.map(it => [it.codigoUnico, machinesMap[pending.items[0].codigoUnico]])))} className="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full font-bold">IGUALAR MÁQUINAS</button>
-                                            )}
-                                        </div>
+                    {/* MAIN BOARD */}
+                    <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-24">
+                        <div className="flex h-full pb-4">
+                            {machineGroups.mapped.map(group => (
+                                <MachineColumn 
+                                    key={group.id} 
+                                    machineId={group.id} 
+                                    pendingScans={group.pending} 
+                                    archivedScans={group.archived}
+                                    onApprove={handleApprove}
+                                    onDelete={handleDelete}
+                                    processingId={processingId}
+                                />
+                            ))}
 
-                                        <div className="scroll-area">
-                                            {showGraphic ? (
-                                                pending.items.map((it, i) => <VisualLabel key={i} data={it} imageSources={imageSources} />)
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {pending.items.map((it, i) => (
-                                                        <div key={i} className="entry-row shadow-sm">
-                                                            <div className="flex-1">
-                                                                <div className="text-[10px] font-black text-blue-500 leading-none mb-1">{it.codigoUnico}</div>
-                                                                <div className="font-bold text-slate-800 leading-none">{(it.piezaNombre||'PAQUETE').split(' ')[0]}</div>
-                                                                <div className="text-[10px] text-slate-500 font-bold">{it.modelo}</div>
-                                                            </div>
-                                                            <input 
-                                                                type="number" 
-                                                                className="input-maq"
-                                                                value={machinesMap[it.codigoUnico] || ''}
-                                                                onChange={(e) => setMachinesMap({...machinesMap, [it.codigoUnico]: e.target.value})}
-                                                                placeholder="MÁQ"
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="fixed-footer grid grid-cols-2 gap-4">
-                                            <button onClick={() => window.location.reload()} className="bg-slate-100 py-5 rounded-2xl font-bold text-slate-400 uppercase text-xs">Descartar</button>
-                                            <button onClick={confirmFinal} className="bg-blue-600 py-5 rounded-2xl font-black text-white text-lg">ENVIAR TODO</button>
+                            {/* Columna Sin Asignar */}
+                            {machineGroups.unmapped.length > 0 && (
+                                <div className="min-w-[300px] max-w-[300px] flex flex-col h-full mx-2 opacity-80">
+                                    <div className="bg-red-50 border border-red-100 rounded-2xl p-4 mb-3">
+                                        <div className="flex items-center gap-2 text-red-400 font-bold">
+                                            <Icon name="alert-circle" />
+                                            <span>Sin Máquina</span>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                    <div className="flex-1 overflow-y-auto">
+                                        {machineGroups.unmapped.map(scan => (
+                                            <ScanCard key={scan.id} scan={scan} onApprove={handleApprove} onDelete={handleDelete} processing={processingId} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {scannedItems.length === 0 && !isScanning && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/3076/3076134.png" className="w-32 mb-4 grayscale" alt="Relax" />
+                                    <p className="font-playfair text-2xl text-pink-900">Todo está tranquilo hoy...</p>
+                                </div>
+                            )}
                         </div>
+                    </div>
+
+                    {/* MODAL SCANNER */}
+                    {isScanning && (
+                        <ScannerModal 
+                            onClose={() => setIsScanning(false)} 
+                            onScanSuccess={handleViryScanRegister}
+                            db={db}
+                        />
                     )}
+
+                    {/* RADIO PLAYER FOOTER */}
+                    <RadioPlayer />
                 </div>
             );
         };
